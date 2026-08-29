@@ -18,16 +18,33 @@ Expected ROM identity:
 
 ## Build on Windows x86-64
 
-Requirements: Windows 10/11 x86-64, Git, CMake 3.20+, and Visual Studio 2022
-with the Desktop development with C++ workload.
+The easiest path requires only 64-bit Windows 10/11, PowerShell, Windows
+Package Manager (`winget`), and your legally obtained ROM. The setup wrapper
+checks the machine, installs any missing Git, CMake, and Visual Studio 2022 C++
+build tools from their standard WinGet packages, then runs the normal build:
+
+```powershell
+.\setup-and-build.ps1 -Rom 'C:\path\to\River City Ransom (USA).nes'
+```
+
+The Visual Studio installer may request administrator approval. If Windows asks
+for a restart, restart and run the same command again; completed tool installs
+will be detected and skipped. Before installing anything, the wrapper lists the
+missing tools and asks permission to accept the WinGet source and package
+license agreements. Automated setups can pass `-AcceptToolLicenses` to skip
+that prompt.
+
+For an existing development machine, the direct build still requires Git,
+CMake 3.20+, and Visual Studio 2022 with the Desktop development with C++
+workload:
 
 ```powershell
 git submodule update --init --recursive
 .\build.ps1 -Rom 'C:\path\to\River City Ransom (USA).nes'
 ```
 
-The script builds the recompiler, privately generates `generated/rcr_*.c`, and
-builds `build-public/Release/RCRness.exe`. The ROM and generated files stay
+Both paths build the recompiler, privately generate `generated/rcr_*.c`, and
+build `build-public/Release/RCRness.exe`. The ROM and generated files stay
 ignored and must never be committed or attached to a public release.
 
 Xbox/SDL-compatible controllers are the clean-install P1 and P2 defaults. The

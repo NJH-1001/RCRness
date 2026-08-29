@@ -15,6 +15,8 @@ It must not contain:
 - Ghidra projects, extracted binaries, or analysis databases;
 - user-specific paths, launcher configuration, credentials, or private logs.
 
-Users build privately from their own legally obtained ROM with `build.ps1`.
-The repository's public package script creates a ROM-free Windows x86-64 source
-and build kit; it deliberately does not package the locally built game.
+Users build privately from their own legally obtained ROM with
+`setup-and-build.ps1` (automatic toolchain setup) or `build.ps1` (existing
+toolchain). The repository's public package script creates a ROM-free Windows
+x86-64 source and build kit; it deliberately does not package the locally built
+game.
