@@ -1,0 +1,27 @@
+# River City Ransom (USA), NES mapper 4 / MMC3.
+# Seeds below were verified against the final fixed 8 KiB bank in Ghidra.
+
+[game]
+output_prefix = "rcr"
+
+# The proposal scan produced 1,968 decode failures among 7,941 candidates and
+# conflicting data-region suggestions. Start from verified control-flow seeds;
+# runtime interpreter telemetry will identify genuine dynamic targets.
+disable_ptr_scan = true
+
+# Keep structural secondary-entry classification enabled. RCR branches among
+# internal blocks in long routines such as the E343 palette fade state machine;
+# treating those blocks as standalone functions creates recursive C dispatch.
+
+# RCR deliberately unwinds JSR frames from NMI (for example FC60 -> FF61).
+# Preserve every 6502 return address so those interrupt-driven exits can be
+# represented by the framework's normal stack-bail propagation.
+push_all_jsr = true
+
+[functions]
+fixed = [
+    0xFF76, # RESET vector
+    0xFF4F, # NMI vector
+    0xF1D9, # IRQ vector
+    0xF223, # RESET continuation after hardware initialization
+]
