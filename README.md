@@ -91,11 +91,13 @@ Display aspect ratio is selectable without changing the native framebuffer:
 - `Aspect4x3 = 1` under `[Display]` selects 4:3 directly in `config.ini`.
 
 Sprite-flicker reduction is enabled by default. RCR sometimes needs more than
-one video frame to finish rebuilding shadow OAM; the option presents the last
-completed OAM snapshot instead of a hardware-era partial update:
+one video frame to finish rebuilding shadow OAM. The option repairs only an
+individual DMA entry carrying the writer's verified transient clipped
+`Y=$F8` marker, using that entry's preceding coherent value.
 
-Snapshots that still contain the writer's transient clipped `Y=$F8` marker are
-not promoted; the last coherent page remains visible until the build completes.
+Every other sprite entry from the current DMA passes through immediately. This
+prevents the repair from holding characters and ground objects one update behind
+the scrolling background.
 
 - Press Ctrl+F8 in game to toggle the option (persisted to `config.ini`).
 - Or launch with `--reduce-sprite-flicker` / `--authentic-sprites` for a
@@ -103,8 +105,7 @@ not promoted; the last coherent page remains visible until the build completes.
 - `ReduceSpriteFlicker = 1` under `[Display]` enables it directly.
 
 The option does not modify guest RAM, generated code, or game timing. Disable
-it if an unusual scene shows a sprite lingering until the next completed game
-update.
+it to compare against the original hardware-era partial sprite updates.
 
 ## CRT/composite presentation
 

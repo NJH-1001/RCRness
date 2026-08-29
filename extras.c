@@ -19,24 +19,38 @@ const char *g_watchdog_stack_dump = NULL;
 
 /* RCR can take more than one video frame to finish a gameplay update. Its
  * metasprite builder writes directly into shadow OAM while that update is in
- * progress, so the hardware-era mid-update DMA exposes transient clipped
- * entries (Y=$F8) as one-frame holes. $F290 is the verified boundary where
- * the game resets its OAM cursor before beginning the next complete build.
- * Preserve the just-finished shadow page there and present only completed OAM
- * snapshots. Guest RAM and game timing remain untouched. */
+ * progress, so the hardware-era mid-update DMA can expose an entry with the
+ * verified transient clipped value Y=$F8. Repair only that entry in the DMA
+ * presentation snapshot; every coherent entry must pass through immediately
+ * so moving sprites remain synchronized with the scrolling background. Guest
+ * RAM and game timing remain untouched. */
 static uint8_t s_completed_oam[0x100];
 static int     s_completed_oam_valid = 0;
 
-static int shadow_oam_is_complete(void) {
-    /* RCR initializes unused entries to Y=$F0.  Its metasprite writer uses
-     * Y=$F8 only while clipping/replacing an entry, so a page that still has
-     * an $F8 Y byte at the next-build boundary is not safe to present yet.
-     * Keep the preceding completed page until the following coherent build. */
-    for (int slot = 0; slot < 64; slot++) {
-        if (g_ram[0x0200 + slot * 4] == 0xF8)
-            return 0;
+static void repair_transient_oam_entries(uint8_t oam[0x100]) {
+    /* A first snapshot must be wholly coherent because there is no preceding
+     * value with which to repair a transient entry. Until then, retain the
+     * authentic DMA contents rather than inventing a replacement. */
+    if (!s_completed_oam_valid) {
+        for (int slot = 0; slot < 64; slot++) {
+            if (oam[slot * 4] == 0xF8)
+                return;
+        }
+        memcpy(s_completed_oam, oam, sizeof(s_completed_oam));
+        s_completed_oam_valid = 1;
+        return;
     }
-    return 1;
+
+    /* RCR initializes unused entries to Y=$F0 and uses Y=$F8 only while an
+     * entry is being clipped/replaced. Repair just that four-byte entry from
+     * the preceding coherent state instead of delaying unrelated sprites. */
+    for (int slot = 0; slot < 64; slot++) {
+        size_t offset = (size_t)slot * 4;
+        if (oam[offset] == 0xF8)
+            memcpy(oam + offset, s_completed_oam + offset, 4);
+        else
+            memcpy(s_completed_oam + offset, oam + offset, 4);
+    }
 }
 
 static int completed_oam_state_get(uint8_t *buf, int cap) {
@@ -100,20 +114,9 @@ uint8_t game_ram_read_hook(uint16_t pc, uint16_t addr, uint8_t val) {
     return val;
 }
 
-void game_ram_write_observer(uint16_t pc, uint16_t addr,
-                             uint8_t old_val, uint8_t new_val) {
-    (void)old_val;
-    if (pc == 0xF290 && addr == 0x052D && new_val == 0xFC &&
-        shadow_oam_is_complete()) {
-        memcpy(s_completed_oam, g_ram + 0x0200, sizeof(s_completed_oam));
-        s_completed_oam_valid = 1;
-    }
-}
-
 void game_oam_dma_filter(uint8_t page, uint8_t oam[0x100]) {
-    if (page == 0x02 && s_completed_oam_valid &&
-        g_nes_config.reduce_sprite_flicker)
-        memcpy(oam, s_completed_oam, sizeof(s_completed_oam));
+    if (page == 0x02 && g_nes_config.reduce_sprite_flicker)
+        repair_transient_oam_entries(oam);
 }
 
 void game_run_nmi(void) { func_NMI(); }

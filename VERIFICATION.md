@@ -53,9 +53,10 @@
 - A user gameplay trace isolated the apparent wrong-tile artifact to individual
   shadow-OAM entries ending a frame with the game's clipped value `Y=$F8`.
   Write attribution identified `$EF3F` as the writer and `$F290` as the verified
-  next-build boundary. The selectable sprite-flicker reduction mode snapshots
-  shadow OAM at that boundary and substitutes only the completed snapshot after
-  page `$02` DMA; guest RAM, timing, and generated code remain unchanged.
+  next-build boundary. The selectable sprite-flicker reduction mode now repairs
+  only a transient four-byte entry in the page `$02` DMA presentation snapshot;
+  coherent entries pass through from the current DMA without delay. Guest RAM,
+  timing, and generated code remain unchanged.
 - A later 180-frame gameplay trace found two additional isolated partial pages
   at frames 7849 and 7890. Both contained an `Y=$F8` entry for exactly one frame
   and reverted on the next frame, while unused entries remained `Y=$F0`.
@@ -66,6 +67,11 @@
   872, and 876) to the intact neighboring-frame hash `2d807115`; all 25 already
   intact frames retained their original hashes. The established 600-frame boot
   smoke hashes also remain unchanged with zero dispatch misses.
+- A moving-gameplay replay exposed the former whole-page snapshot as one game
+  update behind authentic DMA on 29 consecutive rendered frames. With per-entry
+  DMA repair, all 29 filtered hashes match authentic sprite timing exactly. The
+  known-corruption replay still changes exactly the same five `$F8` frames to
+  `2d807115`, and both replays report zero dispatch misses.
 - The RelWithDebInfo build and established 600-frame smoke hashes remain clean
   after the mapped-controller/raw-joystick dual path. The sandbox device session
   enumerated the Xbox One Controller through SDL's standardized mapping; the
