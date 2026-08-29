@@ -70,6 +70,12 @@
   after the mapped-controller/raw-joystick dual path. The sandbox device session
   enumerated the Xbox One Controller through SDL's standardized mapping; the
   user's PowerA Switch 2 hardware remains the required physical P2 check.
+- The public setup path now uses pinned, SHA-256-verified portable LLVM-MinGW
+  20260616, CMake 4.4.2, and Ninja 1.13.2 archives instead of the Visual Studio
+  C++ workload. A clean end-to-end setup build produced a native x86-64 PE with
+  no LLVM runtime DLL dependency. Two 600-frame smoke runs matched the
+  established hashes at every 100-frame checkpoint and reported zero dispatch
+  misses.
 - The selectable CRT/composite path creates and presents a 768x720 native-pixel
   or 960x720 aspect-corrected filtered image from the untouched 256x240
   framebuffer. Aspect correction now happens before the phosphor mask, avoiding

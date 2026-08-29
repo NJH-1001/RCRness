@@ -13,8 +13,8 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("ROM-free owned-input setup host for RCRness")]
 [assembly: AssemblyCompany("RCRness contributors")]
 [assembly: AssemblyProduct("RCRness Setup")]
-[assembly: AssemblyVersion("0.1.1.0")]
-[assembly: AssemblyFileVersion("0.1.1.0")]
+[assembly: AssemblyVersion("0.1.2.0")]
+[assembly: AssemblyFileVersion("0.1.2.0")]
 
 namespace RCRnessSetup
 {
@@ -76,7 +76,7 @@ namespace RCRnessSetup
 
     internal sealed class SetupForm : Form
     {
-        private const string SetupVersion = "0.1.1";
+        private const string SetupVersion = "0.1.2";
         private const string SourceResource = "RCRness.SourceKit.zip";
         private const string ExpectedRomSha256 =
             "B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1";
@@ -248,11 +248,12 @@ namespace RCRnessSetup
                 AppendLog("ROM verified successfully.");
 
                 DialogResult consent = MessageBox.Show(this,
-                    "RCRness may use Windows Package Manager to install missing Git, " +
-                    "CMake, and Visual Studio 2022 C++ Build Tools. This accepts the " +
-                    "WinGet source and package license agreements. Administrator approval " +
-                    "may be requested.\r\n\r\nContinue with the local build?",
-                    "Install build tools if needed", MessageBoxButtons.YesNo,
+                    "RCRness will download a pinned, hash-verified portable compiler, " +
+                    "CMake, and Ninja (about 231 MiB total). They stay in your local " +
+                    "RCRness folder and do not install Visual Studio or a Windows SDK. " +
+                    "If Git is missing, setup may install Git through WinGet and accept " +
+                    "its package agreements.\r\n\r\nContinue with the local build?",
+                    "Download compact build tools", MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);
                 if (consent != DialogResult.Yes)
                 {
@@ -267,7 +268,7 @@ namespace RCRnessSetup
                     throw new FileNotFoundException("The embedded build kit is incomplete.", setupScript);
                 }
 
-                SetStatus("Installing missing tools and building RCRness...");
+                SetStatus("Preparing portable tools and building RCRness...");
                 progress.Style = ProgressBarStyle.Marquee;
                 int exitCode = await RunBuild(setupScript, romPath, sourceRoot);
                 progress.Style = ProgressBarStyle.Blocks;
@@ -278,7 +279,7 @@ namespace RCRnessSetup
                         "Review the log above. If Windows requested a restart, restart and run this setup again.");
                 }
 
-                string gameExe = Path.Combine(sourceRoot, "build-public", "Release", "RCRness.exe");
+                string gameExe = Path.Combine(sourceRoot, "build-public", "RCRness.exe");
                 if (!File.Exists(gameExe))
                 {
                     throw new FileNotFoundException("The build completed but RCRness.exe was not found.", gameExe);

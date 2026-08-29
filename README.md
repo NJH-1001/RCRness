@@ -36,25 +36,24 @@ GitHub release and verify its published SHA-256.
 
 ### Build from the source kit
 
-The easiest path requires only 64-bit Windows 10/11, PowerShell, Windows
-Package Manager (`winget`), and your legally obtained ROM. The setup wrapper
-checks the machine, installs any missing Git, CMake, and Visual Studio 2022 C++
-build tools from their standard WinGet packages, then runs the normal build:
+The easiest path requires only 64-bit Windows 10/11, PowerShell, an internet
+connection, and your legally obtained ROM. The setup wrapper downloads pinned,
+SHA-256-verified portable copies of LLVM-MinGW, CMake, and Ninja into
+`%LOCALAPPDATA%\RCRness\toolchains`, then runs the normal build:
 
 ```powershell
 .\setup-and-build.ps1 -Rom 'C:\path\to\River City Ransom (USA).nes'
 ```
 
-The Visual Studio installer may request administrator approval. If Windows asks
-for a restart, restart and run the same command again; completed tool installs
-will be detected and skipped. Before installing anything, the wrapper lists the
-missing tools and asks permission to accept the WinGet source and package
-license agreements. Automated setups can pass `-AcceptToolLicenses` to skip
-that prompt.
+The portable downloads total about 231 MiB and are reused by later builds. They
+do not install Visual Studio or a Windows SDK and do not require administrator
+approval. Git is the only system tool required to fetch NESRecomp; if Git is
+missing, the wrapper offers to install Git for Windows through WinGet. Automated
+setups can pass `-AcceptToolLicenses` to accept that Git package prompt.
 
-For an existing development machine, the direct build still requires Git,
-CMake 3.20+, and Visual Studio 2022 with the Desktop development with C++
-workload:
+For an existing development machine, the direct build requires Git, CMake
+3.20+, Ninja, and an x86-64 LLVM-MinGW compiler on `PATH` (or their paths can be
+passed with `-CMakeExecutable`, `-NinjaExecutable`, and `-CCompiler`):
 
 ```powershell
 git submodule update --init --recursive
@@ -62,7 +61,7 @@ git submodule update --init --recursive
 ```
 
 Both paths build the recompiler, privately generate `generated/rcr_*.c`, and
-build `build-public/Release/RCRness.exe`. The ROM and generated files stay
+build `build-public/RCRness.exe`. The ROM and generated files stay
 ignored and must never be committed or attached to a public release.
 
 Xbox/SDL-compatible controllers are the clean-install P1 and P2 defaults. The

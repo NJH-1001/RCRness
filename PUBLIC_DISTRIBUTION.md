@@ -16,10 +16,10 @@ It must not contain:
 - user-specific paths, launcher configuration, credentials, or private logs.
 
 Users build privately from their own legally obtained ROM with
-`setup-and-build.ps1` (automatic toolchain setup) or `build.ps1` (existing
-toolchain). The repository's public package script creates a ROM-free Windows
-x86-64 source and build kit; it deliberately does not package the locally built
-game.
+`setup-and-build.ps1` (hash-verified portable toolchain setup) or `build.ps1`
+(existing compatible toolchain). The repository's public package script creates
+a ROM-free Windows x86-64 source and build kit; it deliberately does not package
+the locally built game.
 
 Public releases may additionally contain `RCRness-Setup.exe`, the independently
 written setup host built from `bootstrap/RCRnessSetup.cs`. The setup host embeds
