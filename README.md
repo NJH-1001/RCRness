@@ -18,6 +18,24 @@ Expected ROM identity:
 
 ## Build on Windows x86-64
 
+### Recommended: setup executable
+
+Download `RCRness-Setup.exe` from the latest GitHub release and run it. The
+setup host asks for the user's legally obtained River City Ransom (USA) ROM,
+verifies its SHA-256 locally, prepares the clean source kit, installs any
+missing build tools with the user's approval, builds the private playable
+executable, and launches it. A ROM can also be dragged onto the setup window or
+onto `RCRness-Setup.exe`.
+
+The setup executable embeds only this clean source/build kit. It contains no
+ROM, generated game code, playable title executable, saves, or captures. The
+ROM is never uploaded or copied into the source kit. The setup host and locally
+built game are currently unsigned, so Windows SmartScreen may identify them as
+unrecognized applications; use only the executable attached to this project's
+GitHub release and verify its published SHA-256.
+
+### Build from the source kit
+
 The easiest path requires only 64-bit Windows 10/11, PowerShell, Windows
 Package Manager (`winget`), and your legally obtained ROM. The setup wrapper
 checks the machine, installs any missing Git, CMake, and Visual Studio 2022 C++

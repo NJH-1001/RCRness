@@ -10,7 +10,7 @@ It must not contain:
 - `generated/rcr_full.c`, `generated/rcr_dispatch.c`, or other generated game
   code;
 - a playable RCRness executable, object file, or symbol file, because the
-  executable statically contains generated game code;
+  playable executable statically contains generated game code;
 - saves, screenshots, video/audio captures, traces, or diagnostic dumps;
 - Ghidra projects, extracted binaries, or analysis databases;
 - user-specific paths, launcher configuration, credentials, or private logs.
@@ -20,3 +20,9 @@ Users build privately from their own legally obtained ROM with
 toolchain). The repository's public package script creates a ROM-free Windows
 x86-64 source and build kit; it deliberately does not package the locally built
 game.
+
+Public releases may additionally contain `RCRness-Setup.exe`, the independently
+written setup host built from `bootstrap/RCRnessSetup.cs`. The setup host embeds
+only the audited clean source kit, validates the user's ROM locally, and invokes
+the private local build. It is not a playable title executable and contains no
+ROM-derived or generated game code.
