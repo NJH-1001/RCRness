@@ -34,6 +34,12 @@ built game are currently unsigned, so Windows SmartScreen may identify them as
 unrecognized applications; use only the executable attached to this project's
 GitHub release and verify its published SHA-256.
 
+After a successful first build, opening setup again offers **Play Previous
+Build** and **Rebuild**. Playing reuses the private executable immediately and
+does not rerun the recompiler or compiler. Setup remembers only the original
+ROM's local path; it never copies or uploads the ROM. If an older build has no
+remembered path, the game's normal local ROM picker opens instead.
+
 ### Build from the source kit
 
 The easiest path requires only 64-bit Windows 10/11, PowerShell, an internet
@@ -110,8 +116,13 @@ rounded pixel envelopes, filtered mask scaling, and a light Gaussian bloom keep
 the image organic rather than rigidly gridded. A gentle
 nonlinear midtone lift keeps the filtered image bright without raising true
 black. The image is aspect corrected before the phosphor mask is drawn, keeping
-the mask evenly spaced and avoiding wide interference bands in 4:3 mode. Native screenshots,
-diagnostics, and game state remain unchanged.
+the mask evenly spaced and avoiding wide interference bands in 4:3 mode. Native
+screenshots, diagnostics, and game state remain unchanged.
+
+The 4:3 resample is cached once per frame before beam reconstruction. This
+preserves the filtered pixels exactly while avoiding repeated interpolation of
+the same center and neighboring samples on lower-power CPUs and integrated
+graphics systems.
 
 - Press Ctrl+F7 in game to toggle it (persisted to `config.ini`).
 - Or launch with `--crt-filter` / `--no-crt-filter` for a one-run override.

@@ -13,8 +13,8 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("ROM-free owned-input setup host for RCRness")]
 [assembly: AssemblyCompany("RCRness contributors")]
 [assembly: AssemblyProduct("RCRness Setup")]
-[assembly: AssemblyVersion("0.1.2.0")]
-[assembly: AssemblyFileVersion("0.1.2.0")]
+[assembly: AssemblyVersion("0.1.3.0")]
+[assembly: AssemblyFileVersion("0.1.3.0")]
 
 namespace RCRnessSetup
 {
@@ -65,7 +65,38 @@ namespace RCRnessSetup
                         }
                     }
                 }
-                return foundBuild && foundSetup ? 0 : 12;
+                if (!foundBuild || !foundSetup) { return 12; }
+
+                string testRoot = Path.Combine(Path.GetTempPath(),
+                    "RCRness-setup-self-test-" + Guid.NewGuid().ToString("N"));
+                try
+                {
+                    string older = Path.Combine(testRoot, "source-v0.1.2", "build-public");
+                    string newer = Path.Combine(testRoot, "source-v0.1.3", "build-public");
+                    Directory.CreateDirectory(older);
+                    Directory.CreateDirectory(newer);
+                    string olderExe = Path.Combine(older, "RCRness.exe");
+                    string newerExe = Path.Combine(newer, "RCRness.exe");
+                    File.WriteAllBytes(olderExe, new byte[] { 1 });
+                    File.WriteAllBytes(newerExe, new byte[] { 2 });
+                    File.SetLastWriteTimeUtc(olderExe, DateTime.UtcNow.AddMinutes(-1));
+                    File.SetLastWriteTimeUtc(newerExe, DateTime.UtcNow);
+                    string expectedRom = Path.Combine(testRoot, "owned-input.nes");
+                    File.WriteAllText(Path.Combine(testRoot, "source-v0.1.3", "last-rom.txt"),
+                        expectedRom, Encoding.UTF8);
+                    if (!String.Equals(SetupForm.FindPreviousGameExe(testRoot), newerExe,
+                        StringComparison.OrdinalIgnoreCase)) { return 14; }
+                    if (!String.Equals(SetupForm.RememberedRomForBuild(newerExe), expectedRom,
+                        StringComparison.OrdinalIgnoreCase)) { return 15; }
+                }
+                finally
+                {
+                    if (Directory.Exists(testRoot))
+                    {
+                        Directory.Delete(testRoot, true);
+                    }
+                }
+                return 0;
             }
             catch
             {
@@ -76,12 +107,14 @@ namespace RCRnessSetup
 
     internal sealed class SetupForm : Form
     {
-        private const string SetupVersion = "0.1.2";
+        private const string SetupVersion = "0.1.3";
         private const string SourceResource = "RCRness.SourceKit.zip";
         private const string ExpectedRomSha256 =
             "B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1";
 
         private readonly Button selectButton;
+        private readonly Button playButton;
+        private readonly Button rebuildButton;
         private readonly Button folderButton;
         private readonly ProgressBar progress;
         private readonly TextBox log;
@@ -123,6 +156,22 @@ namespace RCRnessSetup
             selectButton.Size = new Size(180, 36);
             selectButton.Click += delegate { ChooseRomAndBuild(); };
             Controls.Add(selectButton);
+
+            playButton = new Button();
+            playButton.Text = "Play Previous Build";
+            playButton.Location = new Point(28, 126);
+            playButton.Size = new Size(180, 36);
+            playButton.Click += delegate { PlayPreviousBuild(); };
+            playButton.Visible = false;
+            Controls.Add(playButton);
+
+            rebuildButton = new Button();
+            rebuildButton.Text = "Rebuild";
+            rebuildButton.Location = new Point(220, 126);
+            rebuildButton.Size = new Size(130, 36);
+            rebuildButton.Click += delegate { RebuildPrevious(); };
+            rebuildButton.Visible = false;
+            Controls.Add(rebuildButton);
 
             folderButton = new Button();
             folderButton.Text = "Open Build Folder";
@@ -168,6 +217,12 @@ namespace RCRnessSetup
                 if (!String.IsNullOrWhiteSpace(initialRom))
                 {
                     StartBuild(initialRom);
+                }
+                else if (FindPreviousGameExe() != null)
+                {
+                    UpdateBuildActions();
+                    SetStatus("Previous build found. Play it now or rebuild from your ROM.");
+                    AppendLog("A completed local build is ready. No rebuild is needed to play it.");
                 }
                 else
                 {
@@ -215,6 +270,38 @@ namespace RCRnessSetup
                     StartBuild(picker.FileName);
                 }
             }
+        }
+
+        private void RebuildPrevious()
+        {
+            string gameExe = FindPreviousGameExe();
+            string rememberedRom = RememberedRomForBuild(gameExe);
+            if (!String.IsNullOrWhiteSpace(rememberedRom) && File.Exists(rememberedRom))
+            {
+                StartBuild(rememberedRom);
+            }
+            else
+            {
+                ChooseRomAndBuild();
+            }
+        }
+
+        private void PlayPreviousBuild()
+        {
+            string gameExe = FindPreviousGameExe();
+            if (String.IsNullOrWhiteSpace(gameExe) || !File.Exists(gameExe))
+            {
+                UpdateBuildActions();
+                SetStatus("No completed build was found. Select your ROM to build RCRness.");
+                return;
+            }
+
+            string rememberedRom = RememberedRomForBuild(gameExe);
+            AppendLog("Launching the existing private build without rebuilding...");
+            LaunchGame(gameExe,
+                !String.IsNullOrWhiteSpace(rememberedRom) && File.Exists(rememberedRom)
+                    ? rememberedRom : null);
+            SetStatus("Previous build launched. No compilation was needed.");
         }
 
         private async void StartBuild(string romPath)
@@ -285,14 +372,11 @@ namespace RCRnessSetup
                     throw new FileNotFoundException("The build completed but RCRness.exe was not found.", gameExe);
                 }
 
+                File.WriteAllText(Path.Combine(sourceRoot, "last-rom.txt"),
+                    Path.GetFullPath(romPath), Encoding.UTF8);
                 SetStatus("Build complete. Launching RCRness...");
                 AppendLog("Build complete. Launching the locally generated game...");
-                ProcessStartInfo game = new ProcessStartInfo();
-                game.FileName = gameExe;
-                game.Arguments = QuoteArgument(Path.GetFullPath(romPath));
-                game.WorkingDirectory = Path.GetDirectoryName(gameExe);
-                game.UseShellExecute = true;
-                Process.Start(game);
+                LaunchGame(gameExe, romPath);
                 progress.Value = 100;
                 SetStatus("RCRness is ready and has been launched.");
             }
@@ -312,9 +396,7 @@ namespace RCRnessSetup
 
         private string ExtractSourceKit()
         {
-            string installRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "RCRness", "source-v" + SetupVersion);
+            string installRoot = CurrentInstallRoot();
             Directory.CreateDirectory(installRoot);
 
             SetStatus("Preparing the clean source kit...");
@@ -411,7 +493,13 @@ namespace RCRnessSetup
         {
             busy = value;
             selectButton.Enabled = !value;
+            playButton.Enabled = !value;
+            rebuildButton.Enabled = !value;
             AllowDrop = !value;
+            if (!value)
+            {
+                UpdateBuildActions();
+            }
         }
 
         private void SetStatus(string value)
@@ -436,11 +524,96 @@ namespace RCRnessSetup
 
         private void OpenBuildFolder()
         {
-            string installRoot = Path.Combine(
+            string gameExe = FindPreviousGameExe();
+            string folder = gameExe == null
+                ? CurrentInstallRoot() : Path.GetDirectoryName(gameExe);
+            Directory.CreateDirectory(folder);
+            Process.Start(new ProcessStartInfo("explorer.exe", QuoteArgument(folder)));
+        }
+
+        private void UpdateBuildActions()
+        {
+            bool hasBuild = FindPreviousGameExe() != null;
+            selectButton.Visible = !hasBuild;
+            playButton.Visible = hasBuild;
+            rebuildButton.Visible = hasBuild;
+            folderButton.Location = hasBuild ? new Point(362, 126) : new Point(220, 126);
+        }
+
+        private static string RCRnessDataRoot()
+        {
+            return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "RCRness", "source-v" + SetupVersion);
-            Directory.CreateDirectory(installRoot);
-            Process.Start(new ProcessStartInfo("explorer.exe", QuoteArgument(installRoot)));
+                "RCRness");
+        }
+
+        private static string CurrentInstallRoot()
+        {
+            return Path.Combine(RCRnessDataRoot(), "source-v" + SetupVersion);
+        }
+
+        private static string FindPreviousGameExe()
+        {
+            return FindPreviousGameExe(RCRnessDataRoot());
+        }
+
+        internal static string FindPreviousGameExe(string dataRoot)
+        {
+            if (!Directory.Exists(dataRoot))
+            {
+                return null;
+            }
+
+            string newest = null;
+            DateTime newestTime = DateTime.MinValue;
+            foreach (string sourceRoot in Directory.GetDirectories(dataRoot, "source-v*"))
+            {
+                string candidate = Path.Combine(sourceRoot, "build-public", "RCRness.exe");
+                if (!File.Exists(candidate))
+                {
+                    continue;
+                }
+                DateTime written = File.GetLastWriteTimeUtc(candidate);
+                if (newest == null || written > newestTime)
+                {
+                    newest = candidate;
+                    newestTime = written;
+                }
+            }
+            return newest;
+        }
+
+        internal static string RememberedRomForBuild(string gameExe)
+        {
+            if (String.IsNullOrWhiteSpace(gameExe))
+            {
+                return null;
+            }
+            DirectoryInfo buildDirectory = Directory.GetParent(gameExe);
+            DirectoryInfo sourceDirectory = buildDirectory == null
+                ? null : buildDirectory.Parent;
+            if (sourceDirectory == null)
+            {
+                return null;
+            }
+            string marker = Path.Combine(sourceDirectory.FullName, "last-rom.txt");
+            if (!File.Exists(marker))
+            {
+                return null;
+            }
+            string value = File.ReadAllText(marker, Encoding.UTF8).Trim();
+            return String.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static void LaunchGame(string gameExe, string romPath)
+        {
+            ProcessStartInfo game = new ProcessStartInfo();
+            game.FileName = gameExe;
+            game.Arguments = String.IsNullOrWhiteSpace(romPath)
+                ? String.Empty : QuoteArgument(Path.GetFullPath(romPath));
+            game.WorkingDirectory = Path.GetDirectoryName(gameExe);
+            game.UseShellExecute = true;
+            Process.Start(game);
         }
 
         private static string Sha256File(string path)

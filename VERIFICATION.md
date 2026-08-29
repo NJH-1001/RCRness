@@ -76,6 +76,11 @@
   no LLVM runtime DLL dependency. Two 600-frame smoke runs matched the
   established hashes at every 100-frame checkpoint and reported zero dispatch
   misses.
+- Reopening setup after a completed build detects the newest private
+  `%LOCALAPPDATA%\RCRness\source-v*\build-public\RCRness.exe` and offers separate
+  Play Previous Build and Rebuild actions. Play launches without invoking any
+  build tool; successful rebuilds remember only the local ROM path for later
+  launches, without copying ROM data.
 - The selectable CRT/composite path creates and presents a 768x720 native-pixel
   or 960x720 aspect-corrected filtered image from the untouched 256x240
   framebuffer. Aspect correction now happens before the phosphor mask, avoiding
@@ -92,6 +97,10 @@
   neighboring-cell bloom that softens flat-field color bands. A live
   software-renderer run exercised filtered presentation while both the mapped
   Xbox P1 and raw PowerA P2 devices were connected.
+- The 4:3 CRT path now computes its 256-to-320 interpolation once per source
+  pixel and reuses that cached picture for beam, glow, and neighbor samples.
+  A 600-frame optimized benchmark fell from 10.39 ms/frame to 6.59 ms/frame
+  (36.6%) while retaining the exact filtered-output hash `2f87e6d1`.
 - Local play blocks at the frame boundary and pauses the SDL audio device while
   the main window lacks input focus, then resumes both on focus gain. Netplay is
   intentionally exempt to prevent one peer from stalling the session.
