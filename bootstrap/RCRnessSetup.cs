@@ -13,8 +13,8 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("ROM-free owned-input setup host for RCRness")]
 [assembly: AssemblyCompany("RCRness contributors")]
 [assembly: AssemblyProduct("RCRness Setup")]
-[assembly: AssemblyVersion("0.1.3.0")]
-[assembly: AssemblyFileVersion("0.1.3.0")]
+[assembly: AssemblyVersion("0.1.4.0")]
+[assembly: AssemblyFileVersion("0.1.4.0")]
 
 namespace RCRnessSetup
 {
@@ -71,8 +71,8 @@ namespace RCRnessSetup
                     "RCRness-setup-self-test-" + Guid.NewGuid().ToString("N"));
                 try
                 {
-                    string older = Path.Combine(testRoot, "source-v0.1.2", "build-public");
-                    string newer = Path.Combine(testRoot, "source-v0.1.3", "build-public");
+                    string older = Path.Combine(testRoot, "source-v0.1.3", "build-public");
+                    string newer = Path.Combine(testRoot, "source-v0.1.4", "build-public");
                     Directory.CreateDirectory(older);
                     Directory.CreateDirectory(newer);
                     string olderExe = Path.Combine(older, "RCRness.exe");
@@ -82,7 +82,7 @@ namespace RCRnessSetup
                     File.SetLastWriteTimeUtc(olderExe, DateTime.UtcNow.AddMinutes(-1));
                     File.SetLastWriteTimeUtc(newerExe, DateTime.UtcNow);
                     string expectedRom = Path.Combine(testRoot, "owned-input.nes");
-                    File.WriteAllText(Path.Combine(testRoot, "source-v0.1.3", "last-rom.txt"),
+                    File.WriteAllText(Path.Combine(testRoot, "source-v0.1.4", "last-rom.txt"),
                         expectedRom, Encoding.UTF8);
                     if (!String.Equals(SetupForm.FindPreviousGameExe(testRoot), newerExe,
                         StringComparison.OrdinalIgnoreCase)) { return 14; }
@@ -107,7 +107,7 @@ namespace RCRnessSetup
 
     internal sealed class SetupForm : Form
     {
-        private const string SetupVersion = "0.1.3";
+        private const string SetupVersion = "0.1.4";
         private const string SourceResource = "RCRness.SourceKit.zip";
         private const string ExpectedRomSha256 =
             "B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1";
