@@ -1,4 +1,9 @@
-# Enhanced renderer and adaptive widescreen
+# Experimental enhanced renderer and adaptive widescreen
+
+**Experimental mod:** rendering, pause menus and targeted combat checks pass,
+but full game progression, all shop and boss prerequisites, physical
+two-controller play, and netplay remain unverified. Use `--widescreen off`
+to select the native view.
 
 The default is **Fit to window**. Resizing the game window changes the actual
 rendered world width, from 256 columns in a narrow window to 854 at 32:9.

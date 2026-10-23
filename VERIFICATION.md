@@ -1,6 +1,6 @@
 # Verification status
 
-## Local adaptive-renderer validation
+## Experimental adaptive widescreen mod: local validation
 
 - Exact owner ROM SHA-256 matches the supported USA revision.
 - Widescreen-off boot/gameplay checkpoints match the original project build.

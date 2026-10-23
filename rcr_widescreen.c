@@ -1,4 +1,5 @@
-/* River City Ransom USA E9C387EC: world-space presentation and visibility.
+/* Experimental River City Ransom USA E9C387EC widescreen mod:
+ * world-space presentation and visibility.
  * All graphics are read from the verified owner ROM at runtime. No ROM data
  * or generated assets are part of this source file. See docs/WIDESCREEN.md. */
 #include "rcr_widescreen.h"
@@ -412,7 +413,7 @@ void rcr_ws_init(const char *rom_path) {
     nes_mod_register_savestate_hook("rcr.widescreen.actors",state_get,state_set);
     ppu_renderer_set_sprite_suppress(suppress_sprite,NULL);
     apply();
-    fprintf(stderr,"[Widescreen] Enhanced world renderer: %s\n",s_enabled?nes_video_aspect_name(s_aspect):"off");
+    fprintf(stderr,"[Widescreen] Experimental enhanced world renderer: %s\n",s_enabled?nes_video_aspect_name(s_aspect):"off");
 }
 int rcr_ws_debug(const char *cmd, int id, const char *json) {
     (void)json;

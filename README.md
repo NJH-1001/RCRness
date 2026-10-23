@@ -16,7 +16,11 @@ Expected ROM identity:
 - SHA-256: `B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1`
 - Header-excluded CRC32: `E9C387EC`
 
-## Enhanced renderer and adaptive widescreen
+## Experimental enhanced renderer and adaptive widescreen
+
+The adaptive widescreen mod is **experimental**. Full game progression, all
+shop and boss prerequisites, physical two-controller play, and netplay have
+not been fully validated. Use `--widescreen off` for the native view.
 
 The local enhanced build defaults to **Fit to window**. Scrolling areas show
 real terrain and complete actors beyond the original screen, and the viewport

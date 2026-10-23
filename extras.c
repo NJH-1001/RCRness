@@ -99,7 +99,7 @@ int game_handle_arg(const char *key, const char *val) {
     return rcr_ws_arg(key, val);
 }
 
-const char *game_arg_usage(void) { return "--widescreen fit|16:9|21:9|32:9|off"; }
+const char *game_arg_usage(void) { return "--widescreen fit|16:9|21:9|32:9|off (experimental)"; }
 
 uint32_t game_get_expected_crc32(void) {
     /* CRC32 of PRG+CHR data; the 16-byte iNES header is excluded. */
