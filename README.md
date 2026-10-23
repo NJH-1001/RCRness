@@ -16,6 +16,28 @@ Expected ROM identity:
 - SHA-256: `B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1`
 - Header-excluded CRC32: `E9C387EC`
 
+## Experimental enhanced renderer and adaptive widescreen
+
+The adaptive widescreen mod is **experimental**. Full game progression, all
+shop and boss prerequisites, physical two-controller play, and netplay have
+not been fully validated. Use `--widescreen off` for the native view.
+
+The local enhanced build defaults to **Fit to window**. Scrolling areas show
+real terrain and complete actors beyond the original screen, and the viewport
+follows live window resizing up to 32:9. Hitboxes, actor activation and authored
+spawn selection account for the wider view. Authored single-screen rooms and
+shops retain their native bounds. See [the widescreen guide](docs/WIDESCREEN.md)
+for controls, reproducible builds, object handling and validation limits.
+
+Existing Visual Studio 2022 installations can build with:
+
+```powershell
+.\build.ps1 -Rom '.\roms\River City Ransom (USA).nes' -UseVisualStudio
+```
+
+Both build paths apply the tracked renderer source patch to the pinned engine
+automatically. Generated game code and playable builds remain private.
+
 ## Build on Windows x86-64
 
 ### Recommended: setup executable

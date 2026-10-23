@@ -4,15 +4,23 @@ param(
     [string]$BuildDirectory = 'build-public',
     [string]$CMakeExecutable = 'cmake.exe',
     [string]$NinjaExecutable = 'ninja.exe',
-    [string]$CCompiler = 'x86_64-w64-mingw32-clang.exe'
+    [string]$CCompiler = 'x86_64-w64-mingw32-clang.exe',
+    [switch]$UseVisualStudio,
+    [switch]$Trace
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $romPath = (Resolve-Path -LiteralPath $Rom).Path
-$buildRoot = Join-Path $projectRoot $BuildDirectory
-$recompilerBuild = Join-Path $projectRoot 'nesrecomp\build\recompiler-public-ninja'
-$recompiler = Join-Path $recompilerBuild 'NESRecomp.exe'
+$buildRoot = if ([IO.Path]::IsPathRooted($BuildDirectory)) { [IO.Path]::GetFullPath($BuildDirectory) } else { Join-Path $projectRoot $BuildDirectory }
+$recompilerBuild = Join-Path $buildRoot 'recompiler'
+$recompiler = if ($UseVisualStudio) { Join-Path $recompilerBuild 'Release\NESRecomp.exe' } else { Join-Path $recompilerBuild 'NESRecomp.exe' }
+New-Item -ItemType Directory -Force -Path (Join-Path $buildRoot 'temp') | Out-Null
+$env:TEMP = Join-Path $buildRoot 'temp'
+$env:TMP = $env:TEMP
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath $romPath).Hash -ne 'B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1') {
+    throw 'This build requires the exact River City Ransom USA ROM documented in README.md.'
+}
 
 function Resolve-Executable {
     param(
@@ -44,9 +52,14 @@ if (-not (Test-Path -LiteralPath $romPath -PathType Leaf)) {
     throw "ROM not found: $Rom"
 }
 
+if ($CMakeExecutable -eq 'cmake.exe' -and (Test-Path -LiteralPath "$env:ProgramFiles\CMake\bin\cmake.exe")) {
+    $CMakeExecutable = "$env:ProgramFiles\CMake\bin\cmake.exe"
+}
 $cmake = Resolve-Executable -Value $CMakeExecutable -DisplayName 'CMake'
-$ninja = Resolve-Executable -Value $NinjaExecutable -DisplayName 'Ninja'
-$compiler = Resolve-Executable -Value $CCompiler -DisplayName 'LLVM-MinGW C compiler'
+if (-not $UseVisualStudio) {
+    $ninja = Resolve-Executable -Value $NinjaExecutable -DisplayName 'Ninja'
+    $compiler = Resolve-Executable -Value $CCompiler -DisplayName 'LLVM-MinGW C compiler'
+}
 
 if ((Test-Path -LiteralPath (Join-Path $projectRoot '.git')) -and
     -not (Test-Path -LiteralPath (Join-Path $projectRoot 'nesrecomp\recompiler'))) {
@@ -64,16 +77,19 @@ elseif (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'nesrecomp\recompil
     if ($LASTEXITCODE -ne 0) { throw 'Could not initialize NESRecomp submodules.' }
 }
 
-Assert-NinjaBuildDirectory -Path $recompilerBuild
-Assert-NinjaBuildDirectory -Path $buildRoot
+& (Join-Path $projectRoot 'prepare-engine.ps1')
+if ($UseVisualStudio) {
+    $generatorArgs = @('-G', 'Visual Studio 17 2022', '-A', 'x64')
+} else {
+    Assert-NinjaBuildDirectory -Path $recompilerBuild
+    Assert-NinjaBuildDirectory -Path $buildRoot
+    $generatorArgs = @('-G','Ninja', '-DCMAKE_BUILD_TYPE=Release', "-DCMAKE_MAKE_PROGRAM:FILEPATH=$ninja", "-DCMAKE_C_COMPILER:FILEPATH=$compiler")
+}
 
 & $cmake -S (Join-Path $projectRoot 'nesrecomp\recompiler') `
-    -B $recompilerBuild -G Ninja `
-    '-DCMAKE_BUILD_TYPE=Release' `
-    "-DCMAKE_MAKE_PROGRAM:FILEPATH=$ninja" `
-    "-DCMAKE_C_COMPILER:FILEPATH=$compiler"
+    -B $recompilerBuild @generatorArgs
 if ($LASTEXITCODE -ne 0) { throw 'Could not configure NESRecomp.' }
-& $cmake --build $recompilerBuild
+& $cmake --build $recompilerBuild --config Release --parallel 4
 if ($LASTEXITCODE -ne 0) { throw 'Could not build NESRecomp.' }
 
 Push-Location $projectRoot
@@ -81,17 +97,17 @@ try {
     & $recompiler $romPath --game (Join-Path $projectRoot 'game.toml')
     if ($LASTEXITCODE -ne 0) { throw "NESRecomp failed with exit code $LASTEXITCODE" }
 
-    & $cmake -S $projectRoot -B $buildRoot -G Ninja `
-        '-DCMAKE_BUILD_TYPE=Release' `
-        "-DCMAKE_MAKE_PROGRAM:FILEPATH=$ninja" `
-        "-DCMAKE_C_COMPILER:FILEPATH=$compiler" `
-        '-DNESRECOMP_ENABLE_TRACE=OFF' '-DNESRECOMP_ENABLE_STACK_TRACKING=OFF'
+    $traceValue = if ($Trace) { 'ON' } else { 'OFF' }
+    & $cmake -S $projectRoot -B $buildRoot @generatorArgs `
+        "-DNESRECOMP_ENABLE_TRACE=$traceValue" '-DNESRECOMP_ENABLE_STACK_TRACKING=OFF' `
+        "-DNESRECOMP_ENABLE_POSTMORTEM_RINGS=$traceValue"
     if ($LASTEXITCODE -ne 0) { throw 'Could not configure RCRness.' }
-    & $cmake --build $buildRoot
+    & $cmake --build $buildRoot --config Release --parallel 4
     if ($LASTEXITCODE -ne 0) { throw 'Could not build RCRness.' }
 }
 finally {
     Pop-Location
 }
 
-Write-Host "Built $buildRoot\RCRness.exe"
+$gameExecutable = if ($UseVisualStudio) { Join-Path $buildRoot 'Release\RCRness.exe' } else { Join-Path $buildRoot 'RCRness.exe' }
+Write-Host "Built $gameExecutable"

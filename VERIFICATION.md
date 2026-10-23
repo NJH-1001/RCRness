@@ -1,5 +1,30 @@
 # Verification status
 
+## Experimental adaptive widescreen mod: local validation
+
+- Exact owner ROM SHA-256 matches the supported USA revision.
+- Widescreen-off boot/gameplay checkpoints match the original project build.
+- All 73 ROM-derived entrance records covering all 35 rooms load with zero
+  dispatch misses and zero metasprite decoder errors.
+- Every sampled scrolling-room background comparison matches all 38,400 native
+  playfield pixels. Fixed rooms keep the complete native frame and sprites.
+- Nine aspect/resize cases pass, including real hidden SDL windows with CRT
+  enabled and disabled.
+- Native right-edge movement stops at X=1015 in the top school corridor;
+  its duplicate fifth streaming page is excluded from the wide camera bounds.
+- Current-build save/load replay matches the resulting PNG and RAM exactly.
+  Repeated entrance restores exercise the upstream native-tail reset fix.
+- A protected-player punch test at world X=400 with camera X=0 retains enemy
+  health in stock mode and reduces health to zero in the enhanced wide view.
+- The defeated enemy's coin awards its original money reward, followed by a
+  replacement wave from the original gang spawner. A pending actor at X=400
+  retains its pending visibility state in stock mode and becomes visible in
+  the wide view; that test supplies the pending prerequisite explicitly.
+
+Entrance loading is not full gameplay completion. Traversal/progression gates
+were bypassed for the entrance audit. See [WIDESCREEN.md](docs/WIDESCREEN.md)
+for the implementation, scripts and remaining unverified cases.
+
 ## Verified
 
 - Ghidra MCP connected to the fixed 8 KiB bank before analysis.
@@ -110,6 +135,37 @@
 - Local play blocks at the frame boundary and pauses the SDL audio device while
   the main window lacks input focus, then resumes both on focus gain. Netplay is
   intentionally exempt to prevent one peer from stalling the session.
+
+## Owner playtest: wide pause and incoming damage
+
+- The root pause display now keeps the scrolling-room world and actor packets
+  in the adaptive viewport. Native pause text/cursor pixels remain centered;
+  full pause submenus extend their flat native border to the viewport edges.
+- At the starting X=48, the former virtual hitbox origin was -16. The guest's
+  unsigned subtraction rejected that borrow before testing Alex's hitboxes.
+  Clamping the origin to zero retains the original collision/damage code.
+- Replayed the same captured natural enemy attack at X=48: old widescreen
+  HP 63 -> 63; corrected widescreen HP 63 -> 61; native HP 63 -> 61. Health,
+  defense, attack states and success/damage flags were not written. Position
+  cheats establish contact; they do not establish ordinary AI route behavior.
+- Independently ran the original owner ROM in the Mesen libretro reference
+  with a boot input script followed by no input. Enemy attacks reduce Alex's
+  health to zero. The original game does not grant permanent AFK immunity.
+- Reproducible runtime checks: `tools/validate_pause.py` and
+  `tools/validate_incoming_damage.py`; private artifacts are outside Git.
+- The shared runtime now records the resumed caller PC after an NMI deliberately
+  pops guest JSR frames. Its old pre-interrupt FC73 wait address was inconsistent
+  with the post-NMI CPU/stack snapshot and could spin with NMI disabled when a
+  full pause submenu was restored. The same stack-unwind predicate used by the
+  runner selects the architectural RTS continuation; ordinary snapshots retain
+  their existing PC and instruction-charge semantics.
+- Final runtime checks pass: seven paused geometry cases in a real hidden SDL
+  window with CRT enabled; all five submenu images, exact state replay and native
+  return controls; root pause state replay and resume; six incoming-hit cases at
+  X=48/X=400; the existing outgoing-hit/defeat/coin/replacement-wave checks;
+  73 entrances across 35 rooms and exact gameplay state replay. The final
+  production boot retains every established native/off hash through frame 1100
+  and reports zero dispatch misses in native and Fit modes.
 
 ## Resolved timing failure
 

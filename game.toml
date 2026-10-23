@@ -25,3 +25,16 @@ fixed = [
     0xF1D9, # IRQ vector
     0xF223, # RESET continuation after hardware initialization
 ]
+
+# Observe complete metasprites before the hardware OAM clip/budget is applied.
+[[mod_function_hook]]
+addr = 0xED0E
+
+# Screen-relative hitbox and spawn visibility checks use these virtual reads.
+# The world coordinates, terrain collisions and authored spawn tables remain
+# owned by the original game. Stores and all other reads remain authentic.
+[[ram_read_hook]]
+addr = 0x00DC
+
+[[ram_read_hook]]
+addr = 0x00DD
