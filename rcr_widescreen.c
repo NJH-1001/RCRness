@@ -212,7 +212,7 @@ static void capture_object(int obj) {
     Source *src=&s_actors.shadow[obj].source;
     memset(src,0,sizeof *src);
     src->x=(int16_t)world_x(obj);
-    src->wy=(int16_t)((g_ram[0x9e+obj] | (g_ram[0xa7+obj]<<8))+
+    src->wy=(int16_t)((g_ram[0x9e + obj] | (g_ram[0xa7+obj]<<8))+
                       (g_ram[0xb9+obj] | (g_ram[0xc2+obj]<<8)));
     src->order=++s_actors.sequence;
     src->type=g_ram[0xcb+obj]; src->anim=g_ram[0xd3+obj];

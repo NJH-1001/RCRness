@@ -40,6 +40,43 @@ automatically. Generated game code and playable builds remain private.
 
 ## Build on Windows x86-64
 
+## Linux and macOS setup releases
+
+Version 0.1.5 also includes native **Linux x86-64**, **macOS Intel x86-64**
+and **macOS Apple Silicon arm64** setup applications. These are ROM-free setup
+hosts: each player selects their own supported ROM and builds the playable game
+privately. First build requires an internet connection. Later launches offer
+**Play Previous Build** and **Rebuild**.
+
+On Linux, extract `RCRness-Setup-Linux-x86_64.tar.gz` and run `RCRness-Setup`.
+Ubuntu/Debian setup can request system authorization through PolicyKit to
+install Git, a C compiler, CMake, Ninja and SDL2 development files. On other
+distributions, install those dependencies using the system package manager.
+The binary targets glibc 2.35 or newer (Ubuntu 22.04 or newer).
+
+On macOS, extract the archive for your CPU and open `RCRness-Setup.app`.
+Install [Homebrew](https://brew.sh) first; setup uses it to install CMake,
+Ninja and SDL2. Apple Command Line Tools are required; setup opens Apple's
+installer when they are missing. Reopen setup after completing installation.
+The app is unsigned and not notarized. Use macOS **Open Anyway** for the
+download from this repository; there is no requirement to disable Gatekeeper.
+The builds target macOS 13 or newer.
+
+Command-line source builds on either platform use:
+
+```sh
+bash ./build.sh '/path/to/River City Ransom (USA).nes'
+./build-public/RCRness '/path/to/River City Ransom (USA).nes'
+```
+
+GitHub Actions compiles the shared host on each OS with original synthetic
+test input and tests each packaged setup's embedded source audit. That checks
+compiler/linker portability; it is not a commercial-ROM gameplay test. Windows
+gameplay is tested privately; Linux/macOS game and physical-controller playtests
+remain unverified until tested on those machines.
+
+## Windows setup
+
 ### Recommended: setup executable
 
 Download `RCRness-Setup.exe` from the latest GitHub release and run it. The

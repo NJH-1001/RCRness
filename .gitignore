@@ -39,3 +39,7 @@ rom.cfg
 .mcp.json
 .vs/
 CMakeUserPresets.json
+dist/
+*.spec
+__pycache__/
+bootstrap/source-kit.zip

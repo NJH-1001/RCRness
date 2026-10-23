@@ -26,3 +26,11 @@ written setup host built from `bootstrap/RCRnessSetup.cs`. The setup host embeds
 only the audited clean source kit, validates the user's ROM locally, and invokes
 the private local build. It is not a playable title executable and contains no
 ROM-derived or generated game code.
+
+Linux and macOS releases may contain the separately written
+`bootstrap/setup_unix.py` setup host packaged as a native executable/app. It
+embeds only the audited source kit, checks the user's local ROM hash and runs
+the private local build. Native CI compilation uses original synthetic test
+input solely in temporary build directories. Neither that test executable nor
+any private playable executable is attached to a release. Platform setup
+archives and source kits are the only public build artifacts.

@@ -7,7 +7,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(NESRECOMP_ROOT "${CMAKE_SOURCE_DIR}/nesrecomp")
 include("${NESRECOMP_ROOT}/runner/runner.cmake")
 
-list(APPEND CMAKE_PREFIX_PATH "${NESRECOMP_ROOT}/runner/external/SDL2/cmake")
+if(WIN32)
+    list(APPEND CMAKE_PREFIX_PATH "${NESRECOMP_ROOT}/runner/external/SDL2/cmake")
+endif()
 find_package(SDL2 REQUIRED CONFIG)
 
 add_executable(RCRness
@@ -24,6 +26,9 @@ target_include_directories(RCRness PRIVATE
     ${SDL2_INCLUDE_DIRS}
 )
 target_link_libraries(RCRness PRIVATE ${SDL2_LIBRARIES})
+if(UNIX)
+    target_link_libraries(RCRness PRIVATE m)
+endif()
 
 if(WIN32)
     target_link_libraries(RCRness PRIVATE ws2_32)
@@ -31,10 +36,11 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${NESRECOMP_ROOT}/runner/external/SDL2/lib/x64/SDL2.dll"
             "$<TARGET_FILE_DIR:RCRness>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_SOURCE_DIR}/keybinds.ini"
-            "$<TARGET_FILE_DIR:RCRness>")
+    )
 endif()
+add_custom_command(TARGET RCRness POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/keybinds.ini" "$<TARGET_FILE_DIR:RCRness>")
 
 if(MSVC)
     target_compile_options(RCRness PRIVATE /W3 /WX- /wd4102)

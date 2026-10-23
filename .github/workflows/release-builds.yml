@@ -1,0 +1,77 @@
+name: Release builds
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build audited setup
+        shell: pwsh
+        run: |
+          ./build-bootstrap.ps1
+          & ./dist-public/RCRness-Setup.exe --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'Setup self-test failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-x86_64
+          path: |
+            dist-public/RCRness-Setup.exe
+            dist-public/RCRness-Windows-x86_64-source.zip
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: Linux-x86_64
+          - os: macos-15-intel
+            label: macOS-x86_64
+          - os: macos-14
+            label: macOS-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native build dependencies
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            sudo apt-get update
+            sudo apt-get install -y libsdl2-dev ninja-build python3-tk
+          else
+            brew install sdl2 ninja
+          fi
+          python -m pip install pyinstaller==6.16.0
+          git clone https://github.com/NJH-1001/nesrecomp.git nesrecomp
+          git -C nesrecomp checkout "$(tr -d '\r\n' < NESRECOMP_COMMIT)"
+      - name: Check native compiler portability
+        run: python tools/compile-portability.py
+      - name: Package ROM-free setup
+        shell: bash
+        run: |
+          python tools/package-source.py bootstrap/source-kit.zip
+          python bootstrap/setup_unix.py --self-test
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            python -m PyInstaller --noconfirm --windowed --name RCRness-Setup --add-data 'bootstrap/source-kit.zip:.' bootstrap/setup_unix.py
+            dist/RCRness-Setup.app/Contents/MacOS/RCRness-Setup --self-test
+            ditto -c -k --sequesterRsrc --keepParent dist/RCRness-Setup.app dist/RCRness-Setup-${{ matrix.label }}.zip
+          else
+            python -m PyInstaller --noconfirm --onefile --name RCRness-Setup --add-data 'bootstrap/source-kit.zip:.' bootstrap/setup_unix.py
+            dist/RCRness-Setup --self-test
+            tar -C dist -czf dist/RCRness-Setup-${{ matrix.label }}.tar.gz RCRness-Setup
+          fi
+          cp bootstrap/source-kit.zip dist/RCRness-${{ matrix.label }}-source.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
