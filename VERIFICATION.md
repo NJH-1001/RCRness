@@ -1,6 +1,6 @@
 # Verification status
 
-## v0.1.5 release candidate (2026-10-23)
+## v0.1.5 release verification (2026-10-23)
 
 - Synced the merged adaptive-widescreen work at `967f6a2`.
 - Built privately from clean pinned engine `a546dfef` plus the checked-in
@@ -14,16 +14,26 @@
   Gameplay and pause state replay produced identical images and RAM.
 - The outgoing combat test passed original damage/defeat, coin rewards,
   replacement waves and pending actor activation in the expanded viewport.
-- **Publication blocker:** the incoming-damage audit has not reproduced its
-  required natural left-edge attack with the new local snapshots. Its facing-
-  following setup first records a right-side hit and rejects that prerequisite;
-  fixing Alex at X=48 did not produce a hit within the test window. No player
-  health, attack states or game behavior were patched to force a pass. The
-  incoming-damage assertion remains intact.
+- **Incoming-damage check resolved:** the old test moved Alex to X=48 or X=80
+  according to enemy facing and repeatedly repositioned an enemy. Its setup
+  could either capture the wrong side or prevent a natural approach. The new
+  default test boots using controller input, leaves all RAM untouched during
+  capture, and records a natural idle-player hit at frame 3564 from a snapshot
+  at frame 3560. Alex is at X=48 and HP changes 63 -> 61 in native, 16:9, 21:9
+  and 32:9 replay. Translating all actors by +352 gives X=400: HP remains 63
+  in native view (clipped contact), but drops to 61 in 32:9. Every case has
+  zero dispatch misses. No attacks, health, defense or damage flags are poked.
+- The negative control temporarily removed the existing `origin<0` clamp:
+  native still damaged Alex, while 16:9 incorrectly retained 63 HP and the test
+  failed. Restoring the clamp passed. Game source is unchanged from the
+  candidate; only the test setup and documentation required correction.
 - An attempted snapshot at frame 1400 was still before player initialization
   (HP=0); restoring it hit the interpreter watchdog at `$FC73`. Gameplay and
   pause snapshots passed, but pre-game transition snapshot restoration is not
-  qualified for this candidate.
+  qualified. A long run resumed from the frame-1983 snapshot also reached a
+  fallback watchdog at `$F2CE` after frame 3159. Fresh-boot native and wide
+  capture reached frame 3564 successfully. Long resumed sessions remain a
+  known save-state limitation; short replay/pause checks do not qualify them.
 - Native GitHub runners compiled and linked the Linux x86-64, macOS Intel and
   macOS Apple Silicon hosts with original synthetic test input. Each packaged
   setup passed its embedded ROM-free payload audit. Real-ROM gameplay and
@@ -32,7 +42,9 @@
   of requiring contributor-specific F:/G: volumes.
 - Public release assets contain setup applications and tracked source only.
   No playable title binaries, ROMs, generated game code or private test data
-  are included. Keep v0.1.5 a draft until the publication blocker is resolved.
+  are included. The incoming-damage blocker is resolved; keep the release a
+  draft while the separately observed long save-state continuation watchdog
+  remains unresolved.
 
 ## Experimental adaptive widescreen mod: local validation
 

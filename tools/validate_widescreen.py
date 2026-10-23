@@ -30,7 +30,8 @@ class Session:
         if not window: env['SDL_VIDEODRIVER']='dummy'
         self.out=(output/'runtime.stdout.log').open('w')
         self.err=(output/'runtime.stderr.log').open('w')
-        args=[str(exe),str(rom),'--loadstate',str(state),'--crt-filter' if crt else '--no-crt-filter']
+        args=[str(exe),str(rom),'--crt-filter' if crt else '--no-crt-filter']
+        if state is not None: args+=['--loadstate',str(state)]
         if not window: args+=['--smoke','1000000']
         self.process=subprocess.Popen(args,cwd=output,env=env,stdout=self.out,
             stderr=self.err,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)

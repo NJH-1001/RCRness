@@ -113,8 +113,20 @@ room's combat mechanics.
 Run `tools/validate_widescreen.py --help`, `tools/validate_wide_combat.py
 --help`, `tools/validate_pause.py --help` and
 `tools/validate_incoming_damage.py --help` for the private runtime checks.
-They require a trace build, the owner
-ROM and a current-build gameplay state. Output remains outside source control;
+They require a trace build and the owner ROM. The world, pause and outgoing
+combat checks also require a current-build gameplay state. The incoming-damage
+check now captures its own natural left-edge attack from a fresh boot by default:
+
+```powershell
+python tools/validate_incoming_damage.py --exe build-enhanced/Release/RCRness.exe `
+    --rom 'C:\path\to\River City Ransom (USA).nes' --output private/incoming-audit
+```
+
+It uses controller input to navigate menus, then leaves Alex and the enemies
+under the original game logic until the first hit. An optional `--hit-state`
+replays a previously captured private pre-hit snapshot. Captures use no RAM
+writes; only the X=400 replay translates all actor positions by +352.
+Output remains outside source control;
 game processes are hidden and audio output is muted with a dummy device.
 
 Validated: all 73 entrance loads, 35-room graphics coverage, pixel-identical
@@ -132,8 +144,8 @@ supplied explicitly, so it does not establish boss-unlock behavior.
 The owner-reported left-edge damage regression was reproduced with a captured
 natural enemy attack and unchanged health/defense: the former wide origin
 retained 63 HP, while the corrected origin and native mode both reduced it to
-61 HP over the same four frames at X=48. The incoming-damage audit controls
-positions only, leaves native enemy AI/attack/damage flags in charge, and
+61 HP over the same four frames at X=48. The incoming-damage audit leaves
+native enemy AI/attack/damage flags in charge, and
 replays this hit at the left edge and in the expanded view. A separate Mesen
 reference run of the unmodified owner ROM confirms that an idle starting Alex
 can take enemy damage and die.
