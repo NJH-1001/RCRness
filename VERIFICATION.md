@@ -1,5 +1,39 @@
 # Verification status
 
+## v0.1.5 release candidate (2026-10-23)
+
+- Synced the merged adaptive-widescreen work at `967f6a2`.
+- Built privately from clean pinned engine `a546dfef` plus the checked-in
+  renderer patch. The separate shared engine's PS1 edits were preserved.
+- Corrected C token spacing (`0x9e + obj`) required by LLVM-MinGW.
+- Windows native/off and Fit boot tests ran 1,100 frames with zero dispatch
+  misses. Native frame hashes match the v0.1.4 regression checkpoints.
+- A private scripted Windows run reached live widescreen gameplay. A gameplay
+  snapshot at frame 1983 passed all 73 entrance loads, nine world geometry
+  cases, seven hidden-window CRT pause/resize cases and all five submenus.
+  Gameplay and pause state replay produced identical images and RAM.
+- The outgoing combat test passed original damage/defeat, coin rewards,
+  replacement waves and pending actor activation in the expanded viewport.
+- **Publication blocker:** the incoming-damage audit has not reproduced its
+  required natural left-edge attack with the new local snapshots. Its facing-
+  following setup first records a right-side hit and rejects that prerequisite;
+  fixing Alex at X=48 did not produce a hit within the test window. No player
+  health, attack states or game behavior were patched to force a pass. The
+  incoming-damage assertion remains intact.
+- An attempted snapshot at frame 1400 was still before player initialization
+  (HP=0); restoring it hit the interpreter watchdog at `$FC73`. Gameplay and
+  pause snapshots passed, but pre-game transition snapshot restoration is not
+  qualified for this candidate.
+- Native GitHub runners compiled and linked the Linux x86-64, macOS Intel and
+  macOS Apple Silicon hosts with original synthetic test input. Each packaged
+  setup passed its embedded ROM-free payload audit. Real-ROM gameplay and
+  physical controller tests on Linux/macOS remain unverified.
+- The audit tools now accept a private output directory on any drive instead
+  of requiring contributor-specific F:/G: volumes.
+- Public release assets contain setup applications and tracked source only.
+  No playable title binaries, ROMs, generated game code or private test data
+  are included. Keep v0.1.5 a draft until the publication blocker is resolved.
+
 ## Experimental adaptive widescreen mod: local validation
 
 - Exact owner ROM SHA-256 matches the supported USA revision.

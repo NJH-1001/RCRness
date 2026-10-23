@@ -45,7 +45,7 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == Linux ]]; then
             sudo apt-get update
-            sudo apt-get install -y libsdl2-dev ninja-build python3-tk
+            sudo apt-get install -y libsdl2-dev ninja-build python3-tk xvfb
           else
             brew install sdl2 ninja
           fi
@@ -62,10 +62,12 @@ jobs:
           if [[ "$RUNNER_OS" == macOS ]]; then
             python -m PyInstaller --noconfirm --windowed --name RCRness-Setup --add-data 'bootstrap/source-kit.zip:.' bootstrap/setup_unix.py
             dist/RCRness-Setup.app/Contents/MacOS/RCRness-Setup --self-test
+            dist/RCRness-Setup.app/Contents/MacOS/RCRness-Setup --ui-self-test
             ditto -c -k --sequesterRsrc --keepParent dist/RCRness-Setup.app dist/RCRness-Setup-${{ matrix.label }}.zip
           else
             python -m PyInstaller --noconfirm --onefile --name RCRness-Setup --add-data 'bootstrap/source-kit.zip:.' bootstrap/setup_unix.py
             dist/RCRness-Setup --self-test
+            xvfb-run -a dist/RCRness-Setup --ui-self-test
             tar -C dist -czf dist/RCRness-Setup-${{ matrix.label }}.tar.gz RCRness-Setup
           fi
           cp bootstrap/source-kit.zip dist/RCRness-${{ matrix.label }}-source.zip

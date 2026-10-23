@@ -14,7 +14,6 @@ from validate_widescreen import Session
 
 def run(args):
     output=args.output.resolve()
-    if output.drive.lower()=='c:': raise ValueError('Use F: or G: for audit output')
     output.mkdir(parents=True,exist_ok=True)
     capture=output/'capture';capture.mkdir(exist_ok=True)
     game=Session(args.exe.resolve(),args.rom.resolve(),args.state.resolve(),capture)

@@ -103,6 +103,14 @@ def main():
         audit_payload()
         print('ROM-free source payload verified; setup ' + VERSION)
         return
+    if '--ui-self-test' in sys.argv:
+        import tkinter as tk
+        window = tk.Tk()
+        window.withdraw()
+        window.update()
+        window.destroy()
+        print('Packaged GUI runtime initialized successfully')
+        return
     # Homebrew locations for both Apple Silicon and Intel; keep existing PATH.
     os.environ['PATH'] = '/opt/homebrew/bin:/usr/local/bin:' + os.environ.get('PATH', '')
     import tkinter as tk

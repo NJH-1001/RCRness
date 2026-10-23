@@ -38,8 +38,6 @@ Existing Visual Studio 2022 installations can build with:
 Both build paths apply the tracked renderer source patch to the pinned engine
 automatically. Generated game code and playable builds remain private.
 
-## Build on Windows x86-64
-
 ## Linux and macOS setup releases
 
 Version 0.1.5 also includes native **Linux x86-64**, **macOS Intel x86-64**
@@ -60,7 +58,8 @@ Ninja and SDL2. Apple Command Line Tools are required; setup opens Apple's
 installer when they are missing. Reopen setup after completing installation.
 The app is unsigned and not notarized. Use macOS **Open Anyway** for the
 download from this repository; there is no requirement to disable Gatekeeper.
-The builds target macOS 13 or newer.
+Setup is built and tested on macOS 14 (Apple Silicon) and macOS 15 (Intel).
+Older macOS releases have not been verified.
 
 Command-line source builds on either platform use:
 

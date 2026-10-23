@@ -21,7 +21,6 @@ def press(game, buttons, frames=6):
 
 def run(args):
     output=args.output.resolve()
-    if output.drive.lower()=='c:': raise ValueError('Use F: or G: for audit output')
     output.mkdir(parents=True, exist_ok=True)
     game=Session(args.exe.resolve(),args.rom.resolve(),args.state.resolve(),output,
                  window=args.window,crt=args.crt)

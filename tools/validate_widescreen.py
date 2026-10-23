@@ -1,7 +1,7 @@
 """Private runtime audit. Requires a current-build gameplay state, never ships ROM data.
 
-Run with TEMP/TMP redirected to non-C storage. The output directory must also
-be on non-C storage. Every game process is hidden and uses dummy audio.
+TEMP/TMP are redirected to the selected private output directory.
+Every game process is hidden and uses dummy audio.
 The entrance audit bypasses traversal/progression prerequisites; it does NOT
 establish boss defeat, secret-shop access or end-to-end completion.
 """
@@ -85,7 +85,6 @@ class Session:
 
 def run(args):
     output=args.output.resolve()
-    if os.name=='nt' and output.drive.lower()=='c:': raise ValueError('Use F: or G: for audit output')
     output.mkdir(parents=True,exist_ok=True)
     rom=args.rom.read_bytes()
     if hashlib.sha256(rom).hexdigest()!='b95f8def04c0012604b7cc68cf4ed8f49b2dfe4beda6182051de4b2423bea7b1':
