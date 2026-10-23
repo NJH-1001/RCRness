@@ -16,9 +16,15 @@ scaling when necessary so the picture fills the available aspect.
 The thirteen scrolling rooms use the same NESRecomp custom-compositor and
 live-resizing API used by Super Mario Bros. Their camera stops at the authored
 room edges. Rooms narrower than the viewport are centered. The twenty-two
-authored single-screen rooms, shops, pause/inventory menus, title and other non-gameplay screens keep
+authored single-screen rooms, shops, title and other non-gameplay screens keep
 their native composition; neighboring nametable data is never repeated to
 fill those margins. The status bar and text remain centered and readable.
+Pausing a scrolling room retains the wide world and frozen actors behind the
+centered pause controls. Full pause panels (including belongings, status/help
+and passwords) extend their native flat background across the viewport while
+keeping text and cursors at their original size. Resizing while paused works.
+The game identifies these panels through its native pause-palette buffer;
+the mode is derived from guest RAM again after loading a state.
 The final school corridor excludes its duplicate lookahead page from the
 camera bounds; native movement confirms its right wall at player X=1015.
 
@@ -48,6 +54,8 @@ Screen-dependent guest reads are scoped to verified call sites:
 
 - `$82D6/$82DE`, bank 4: hitboxes use a common local origin for each object
   pair, retaining the original attack, damage, pickup and collision routines.
+  The origin is clamped to zero near the left wall: an unsigned subtraction
+  borrow otherwise rejects Alex's hitboxes at his starting X=48.
 - `$B4AF/$B4B5`, bank 4: special actor activation follows the displayed view.
 - `$BC19/$BC1F`, bank 4: authored replacement-wave positions are evaluated
   against the displayed view when the native spawner chooses a candidate.
@@ -73,6 +81,8 @@ changes. `build.ps1` calls it automatically. The patch includes the original
 SMB renderer API backports (`36e02ce`, `86e0a8b`), integration with the RCR fork's
 CRT/focus/timing fixes, scoped zero-page read-hook support and the upstream
 save-state tail-ancestry reset (`4e4a133`). It contains no game ROM data.
+The state continuation also follows an NMI's deliberate guest-stack unwind:
+a post-NMI snapshot resumes its caller, preserving full-submenu save/load.
 
 With Visual Studio 2022 C++ tools and CMake installed:
 
@@ -95,8 +105,10 @@ entrance dispatcher; traversal and progression prerequisites are bypassed.
 This establishes loading/rendering coverage, not a completed game or every
 room's combat mechanics.
 
-Run `tools/validate_widescreen.py --help` and `tools/validate_wide_combat.py
---help` for the private runtime checks. They require a trace build, the owner
+Run `tools/validate_widescreen.py --help`, `tools/validate_wide_combat.py
+--help`, `tools/validate_pause.py --help` and
+`tools/validate_incoming_damage.py --help` for the private runtime checks.
+They require a trace build, the owner
 ROM and a current-build gameplay state. Output remains outside source control;
 game processes are hidden and audio output is muted with a dummy device.
 
@@ -111,6 +123,15 @@ Coin collection awards the original money reward and allows the original
 replacement wave to spawn. A separate pending-actor test confirms that
 visibility activation follows the wider viewport; its prerequisite state is
 supplied explicitly, so it does not establish boss-unlock behavior.
+
+The owner-reported left-edge damage regression was reproduced with a captured
+natural enemy attack and unchanged health/defense: the former wide origin
+retained 63 HP, while the corrected origin and native mode both reduced it to
+61 HP over the same four frames at X=48. The incoming-damage audit controls
+positions only, leaves native enemy AI/attack/damage flags in charge, and
+replays this hit at the left edge and in the expanded view. A separate Mesen
+reference run of the unmodified owner ROM confirms that an idle starting Alex
+can take enemy damage and die.
 
 Unverified: full progression through every boss and ending, all shop purchases
 and secret-shop prerequisites, physical two-controller play, and network play.

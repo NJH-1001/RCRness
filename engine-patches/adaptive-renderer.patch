@@ -853,10 +853,46 @@ index 3ce36ba..d75793a 100644
 +    }
 +}
 diff --git a/runner/src/runtime.c b/runner/src/runtime.c
-index ead8435..1070ccb 100644
+index ead8435..ab767f3 100644
 --- a/runner/src/runtime.c
 +++ b/runner/src/runtime.c
-@@ -2493,6 +2493,8 @@ int g_nested_nmi_policy = NESTED_NMI_POKE_SPIN_FLAGS;
+@@ -476,6 +476,7 @@ static int      s_guest_tick_charged = 0;
+ static uint16_t s_frame_resume_pc = 0;
+ static int      s_frame_resume_valid = 0;
+ static int      s_frame_resume_tick_charged = 0;
++static uint8_t  s_frame_resume_stack = 0;
+ static int      s_frame_callback_depth = 0;
+ 
+ /* State loads are completed inside the current frame callback, then the
+@@ -972,6 +973,7 @@ void runtime_begin_frame_callback(void) {
+         s_frame_resume_pc = s_guest_pc;
+         s_frame_resume_valid = s_guest_pc_valid;
+         s_frame_resume_tick_charged = s_guest_tick_charged;
++        s_frame_resume_stack = g_cpu.S;
+     }
+ }
+ 
+@@ -987,6 +989,19 @@ int runtime_end_frame_callback(void) {
+ 
+ int runtime_get_savestate_resume(uint16_t *pc, int *tick_charged) {
+     if (s_frame_callback_depth > 0 && s_frame_resume_valid) {
++        /* This suspension point can be after an NMI deliberately popped
++         * interrupted JSR frames. Its CPU/stack snapshot is then the resumed
++         * caller, not the old wait-loop PC captured on callback entry. RCR's
++         * FC60 wait disables NMI during that unwind, so restoring the stale
++         * FC73 PC would otherwise spin forever with NMI disabled. Match the
++         * runner's nmi_stack_unwind predicate and the architectural RTS +1. */
++        extern uint16_t g_rts_target, g_rti_source;
++        if (g_rti_source == 0 && g_rts_target != 0 &&
++            (int8_t)(g_cpu.S - s_frame_resume_stack) > 0) {
++            if (pc) *pc = (uint16_t)(g_rts_target + 1);
++            if (tick_charged) *tick_charged = 0;
++            return 1;
++        }
+         if (pc) *pc = s_frame_resume_pc;
+         if (tick_charged) *tick_charged = s_frame_resume_tick_charged;
+         return 1;
+@@ -2493,6 +2508,8 @@ int g_nested_nmi_policy = NESTED_NMI_POKE_SPIN_FLAGS;
  uint16_t g_code_window_base = 0xE000;
  static int32_t s_tail_pending = -1;
  static int     s_tail_caller  = -1;
@@ -865,7 +901,7 @@ index ead8435..1070ccb 100644
  
  void runtime_prepare_guest_resume(uint16_t pc, int tick_charged) {
      extern uint16_t g_rts_target;
-@@ -2503,6 +2505,11 @@ void runtime_prepare_guest_resume(uint16_t pc, int tick_charged) {
+@@ -2503,6 +2520,11 @@ void runtime_prepare_guest_resume(uint16_t pc, int tick_charged) {
      g_nes_dispatch_depth = 0;
      s_tail_pending = -1;
      s_tail_caller = -1;
@@ -877,7 +913,7 @@ index ead8435..1070ccb 100644
      g_rts_target = 0;
      g_rti_target = 0;
      s_in_irq = 0;
-@@ -2860,8 +2867,6 @@ static struct {
+@@ -2860,8 +2882,6 @@ static struct {
      uint8_t s;
      uint64_t interrupt_epoch;
  } s_tail_active[TAIL_ACTIVE_MAX];

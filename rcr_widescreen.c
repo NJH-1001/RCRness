@@ -56,6 +56,13 @@ static int gameplay(void) {
            g_ram[0x40] && (g_ram[0x48] & 0x80) && !(g_ram[0x3e] & 0x40) &&
            !(g_ram[0x36] & 0x40);
 }
+static int pause_panel(void) {
+    /* The native full-submenu palettes use $0C in buffer $0110; the world
+     * palettes restore $0F on return. Unlike
+     * gameplay flags, this covers level/status/help as well as inventory
+     * and passwords, and derives correctly from guest RAM on state load. */
+    return (g_ram[0x3f]&0x20) && g_ram[0x110]==0x0c;
+}
 static uint8_t prg(int bank, unsigned addr) {
     if (addr >= 0xc000 && addr <= 0xffff) return s_rom[0x1c000 + addr - 0xc000];
     if (bank >= 0 && bank < 8 && addr >= 0x8000 && addr < 0xc000)
@@ -216,16 +223,18 @@ static void capture_object(int obj) {
 }
 static int observe_sprite(uint16_t addr) {
     (void)addr;
-    if (s_enabled && gameplay()) capture_object(g_ram[0x47]);
+    if (s_enabled && gameplay() && !pause_panel()) capture_object(g_ram[0x47]);
     return 0;
 }
 static int suppress_sprite(int slot, int x, int y, void *user) {
-    (void)slot; (void)x; (void)y; (void)user;
+    (void)slot; (void)x; (void)user;
     return s_enabled && s_pages>0 && s_room==g_ram[0x42] &&
-           ppu_renderer_in_custom_native_pass() && gameplay() && !g_ram[0x3f];
+           ppu_renderer_in_custom_native_pass() && gameplay() &&
+           !pause_panel() &&
+           (!g_ram[0x3f] || (y>=32 && y<192));
 }
 void rcr_ws_dma(void) {
-    if (!s_ready || !s_enabled) return;
+    if (!s_ready || !s_enabled || pause_panel()) return;
     if (s_actors.room != g_ram[0x42]) {
         memset(&s_actors,0,sizeof s_actors); s_actors.room=g_ram[0x42];
     }
@@ -259,7 +268,19 @@ static void draw_packet(uint32_t *out, int width, const Packet *packet) {
 static int render(uint32_t *out, int width, int height, int native_x0,
                   const uint32_t *native, void *user) {
     (void)height; (void)user;
-    if (!s_enabled || !gameplay() || g_ram[0x3f]) return 0;
+    if (!s_enabled || !s_ready) return 0;
+    if (pause_panel()) {
+        /* Full pause submenus replace the world with a flat panel. Extend
+         * its blank right border across the viewport; keep native text and
+         * cursor pixels centered at their original size. */
+        for (int y=0; y<240; y++) {
+            for (int x=0; x<width; x++) out[y*width+x]=native[y*256+255];
+            memcpy(out+y*width+native_x0,native+y*256,256*sizeof(uint32_t));
+        }
+        s_wide_frames++;
+        return 1;
+    }
+    if (!gameplay()) return 0;
     if (s_room!=g_ram[0x42]) decode_room();
     if (!s_pages) return 0;
     s_camera=camera(); s_view=view_left(s_camera,width);
@@ -315,7 +336,12 @@ uint8_t rcr_ws_read(uint16_t pc, uint16_t addr, uint8_t value) {
          * The original boxes, attack rules and collision tests still run. */
         int obj=g_ram[0x1a];
         if (obj>=OBJECTS) return value;
-        origin=world_x(obj)-64; handled=1; s_collision_reads++;
+        origin=world_x(obj)-64;
+        /* The guest rejects an unsigned subtraction borrow before accepting
+         * its local X. A negative origin wraps to $FFFF and clips Alex at
+         * the room's left edge despite an otherwise valid local position. */
+        if (origin<0) origin=0;
+        handled=1; s_collision_reads++;
     } else if (g_current_bank==4 && (pc==0xb4af || pc==0xb4b5 || pc==0xbc19 || pc==0xbc1f)) {
         int obj=g_cpu.X;
         if (obj>=OBJECTS) return value;
@@ -402,12 +428,12 @@ int rcr_ws_debug(const char *cmd, int id, const char *json) {
         debug_server_send_fmt("{\"id\":%d,\"ok\":true}",id); return 1;
     }
     if (strcmp(cmd,"rcr_widescreen")) return 0;
-    debug_server_send_fmt("{\"id\":%d,\"ok\":true,\"width\":%d,\"room\":%d,\"pages\":%d,\"camera\":%d,\"view\":%d,\"wide_frames\":%llu,\"decode_errors\":%llu,\"collision_reads\":%llu,\"activation_reads\":%llu,\"spawn_reads\":%llu,\"sprites\":[%u,%u,%u,%u,%u,%u,%u],\"terrain_pixels\":%u,\"terrain_diffs\":%u}",
+    debug_server_send_fmt("{\"id\":%d,\"ok\":true,\"width\":%d,\"room\":%d,\"pages\":%d,\"camera\":%d,\"view\":%d,\"wide_frames\":%llu,\"decode_errors\":%llu,\"collision_reads\":%llu,\"activation_reads\":%llu,\"spawn_reads\":%llu,\"sprites\":[%u,%u,%u,%u,%u,%u,%u],\"terrain_pixels\":%u,\"terrain_diffs\":%u,\"pause_panel\":%u}",
         id,g_render_width,s_room,s_pages,s_camera,s_view,(unsigned long long)s_wide_frames,
         (unsigned long long)s_decode_errors,(unsigned long long)s_collision_reads,
         (unsigned long long)s_activation_reads,(unsigned long long)s_spawn_reads,
         s_actors.present[0].count,s_actors.present[1].count,s_actors.present[2].count,
         s_actors.present[3].count,s_actors.present[4].count,s_actors.present[5].count,s_actors.present[6].count,
-        s_terrain_pixels,s_terrain_diffs);
+        s_terrain_pixels,s_terrain_diffs,(unsigned)pause_panel());
     return 1;
 }
