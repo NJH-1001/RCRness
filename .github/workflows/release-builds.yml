@@ -44,8 +44,11 @@ jobs:
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == Linux ]]; then
-            sudo apt-get update
-            sudo apt-get install -y libsdl2-dev ninja-build python3-tk xvfb
+            # The Azure HTTP mirror can throttle tiny dependency downloads for
+            # many minutes. Use Ubuntu's primary HTTPS archive on this runner.
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 update
+            sudo apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 install -y libsdl2-dev ninja-build python3-tk xvfb
           else
             brew install sdl2 ninja
           fi
