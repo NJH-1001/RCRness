@@ -3,6 +3,8 @@
 #include "mod_savestate.h"
 #include "nes_runtime.h"
 #include "ppu_dot.h"
+#include "rcr_widescreen.h"
+#include "debug_server.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -68,7 +70,7 @@ static int completed_oam_state_set(const uint8_t *buf, int len) {
 }
 
 const char *game_get_name(void) {
-    return "River City Ransom (USA) - RCRness";
+    return "River City Ransom";
 }
 
 void game_on_init(void) {
@@ -76,6 +78,8 @@ void game_on_init(void) {
      * completion flag. This established renderer mode preserves that ordering
      * while retaining the stable per-frame compositor. */
     ppu_dot_set_pre_nmi_render_enabled(1);
+    rcr_ws_init(g_rom_path_for_extras);
+    debug_server_init(0);
     if (!nes_mod_register_savestate_hook("rcr.completed-oam",
                                          completed_oam_state_get,
                                          completed_oam_state_set))
@@ -84,6 +88,7 @@ void game_on_init(void) {
 
 void game_on_frame(uint64_t frame_count) {
     g_watchdog_frame = (uint32_t)frame_count;
+    rcr_ws_frame();
 }
 
 void game_post_nmi(uint64_t frame_count) {
@@ -91,12 +96,10 @@ void game_post_nmi(uint64_t frame_count) {
 }
 
 int game_handle_arg(const char *key, const char *val) {
-    (void)key;
-    (void)val;
-    return 0;
+    return rcr_ws_arg(key, val);
 }
 
-const char *game_arg_usage(void) { return NULL; }
+const char *game_arg_usage(void) { return "--widescreen fit|16:9|21:9|32:9|off"; }
 
 uint32_t game_get_expected_crc32(void) {
     /* CRC32 of PRG+CHR data; the 16-byte iNES header is excluded. */
@@ -109,14 +112,13 @@ int game_dispatch_override(uint16_t addr) {
 }
 
 uint8_t game_ram_read_hook(uint16_t pc, uint16_t addr, uint8_t val) {
-    (void)pc;
-    (void)addr;
-    return val;
+    return rcr_ws_read(pc, addr, val);
 }
 
 void game_oam_dma_filter(uint8_t page, uint8_t oam[0x100]) {
     if (page == 0x02 && g_nes_config.reduce_sprite_flicker)
         repair_transient_oam_entries(oam);
+    if (page == 0x02) rcr_ws_dma();
 }
 
 void game_run_nmi(void) { func_NMI(); }
@@ -126,8 +128,5 @@ void game_post_render(uint32_t *framebuf) { (void)framebuf; }
 void game_fill_frame_record(void *record) { (void)record; }
 
 int game_handle_debug_cmd(const char *cmd, int id, const char *json) {
-    (void)cmd;
-    (void)id;
-    (void)json;
-    return 0;
+    return rcr_ws_debug(cmd, id, json);
 }

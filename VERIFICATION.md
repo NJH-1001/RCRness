@@ -1,5 +1,30 @@
 # Verification status
 
+## Local adaptive-renderer validation
+
+- Exact owner ROM SHA-256 matches the supported USA revision.
+- Widescreen-off boot/gameplay checkpoints match the original project build.
+- All 73 ROM-derived entrance records covering all 35 rooms load with zero
+  dispatch misses and zero metasprite decoder errors.
+- Every sampled scrolling-room background comparison matches all 38,400 native
+  playfield pixels. Fixed rooms keep the complete native frame and sprites.
+- Nine aspect/resize cases pass, including real hidden SDL windows with CRT
+  enabled and disabled.
+- Native right-edge movement stops at X=1015 in the top school corridor;
+  its duplicate fifth streaming page is excluded from the wide camera bounds.
+- Current-build save/load replay matches the resulting PNG and RAM exactly.
+  Repeated entrance restores exercise the upstream native-tail reset fix.
+- A protected-player punch test at world X=400 with camera X=0 retains enemy
+  health in stock mode and reduces health to zero in the enhanced wide view.
+- The defeated enemy's coin awards its original money reward, followed by a
+  replacement wave from the original gang spawner. A pending actor at X=400
+  retains its pending visibility state in stock mode and becomes visible in
+  the wide view; that test supplies the pending prerequisite explicitly.
+
+Entrance loading is not full gameplay completion. Traversal/progression gates
+were bypassed for the entrance audit. See [WIDESCREEN.md](docs/WIDESCREEN.md)
+for the implementation, scripts and remaining unverified cases.
+
 ## Verified
 
 - Ghidra MCP connected to the fixed 8 KiB bank before analysis.

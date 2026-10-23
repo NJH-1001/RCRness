@@ -13,6 +13,7 @@ find_package(SDL2 REQUIRED CONFIG)
 add_executable(RCRness
     ${NESRECOMP_RUNNER_SOURCES}
     extras.c
+    rcr_widescreen.c
     generated/rcr_full.c
     generated/rcr_dispatch.c
 )
