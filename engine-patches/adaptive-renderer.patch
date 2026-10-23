@@ -246,6 +246,71 @@ index d77aabd..6447db6 100644
  void hdpack_unload(void) {
      for (int i = 0; i < HD_NBUCKETS; i++) {
          HdAlias *a = s_alias_buckets[i];
+diff --git a/runner/src/interp.c b/runner/src/interp.c
+index fe0a9f9..a927fa2 100644
+--- a/runner/src/interp.c
++++ b/runner/src/interp.c
+@@ -31,7 +31,7 @@
+ #include <string.h>
+ 
+ /* ---- Tunables ---- */
+-#define INTERP_STEP_CAP   2000000   /* per top-level run instruction cap (watchdog) */
++#define INTERP_STEP_CAP   2000000   /* instructions without a completed frame */
+ #define INTERP_MAX_DEPTH  64        /* nested interp_run guard (native callee misses) */
+ 
+ /* ---- Config (lazily initialised on first dispatch) ---- */
+@@ -61,13 +61,17 @@ extern int      g_rti_bank;
+ 
+ /* ---- Stats ---- */
+ static NesInterpStats s_stats;
++static uint64_t s_frame_epoch;
+ static char s_last_decline_reason[96] = "interpreter fallback declined";
+ static NesInterpExit s_last_exit = {
+     NES_INTERP_EXIT_DECLINED, 0, 0, 0, 0
+ };
+ 
+ void nes_interp_get_stats(NesInterpStats *out) { if (out) *out = s_stats; }
+-void nes_interp_frame_boundary(void) { s_stats.instrs_this_frame = 0; }
++void nes_interp_frame_boundary(void) {
++    s_stats.instrs_this_frame = 0;
++    ++s_frame_epoch;
++}
+ void nes_interp_get_last_exit(NesInterpExit *out) { if (out) *out = s_last_exit; }
+ 
+ typedef struct {
+@@ -293,11 +297,19 @@ static NesInterpExit interp_run_ex(uint16_t entry, int stop_on_stack_lift,
+     const uint8_t S_floor = entry_s;
+     uint16_t ipc = entry;
+     long budget = INTERP_STEP_CAP;
++    uint64_t frame_epoch = s_frame_epoch;
+     uint32_t this_run = 0;
+     NesInterpExit result =
+         make_exit(NES_INTERP_EXIT_NATIVE_ESCAPE, entry, entry, entry_s);
+ 
+     for (;;) {
++        /* A restored continuation can own the frame driver indefinitely.
++         * Bound work between completed frames, not the lifetime of that driver.
++         * Each nested invocation keeps its own budget; max_steps is unchanged. */
++        if (frame_epoch != s_frame_epoch) {
++            frame_epoch = s_frame_epoch;
++            budget = INTERP_STEP_CAP;
++        }
+         if (--budget < 0) {
+             fprintf(stderr, "[interp] WATCHDOG: run from $%04X exceeded %d instrs "
+                             "(bank=%d, ipc=$%04X) — bailing\n",
+diff --git a/runner/src/interp.log b/runner/src/interp.log
+new file mode 100644
+index 0000000..b296c27
+--- /dev/null
++++ b/runner/src/interp.log
+@@ -0,0 +1,7 @@
++2026-10-23: Save-state continuation watchdog
++The explicit resume path can remain the active guest driver across unlimited
++rendered frames. Its old per-invocation instruction budget falsely expired after
++two million cumulative instructions in otherwise progressing gameplay. Renew each
++invocation's budget when the runtime reports a completed frame. Keep the depth
++guard, no-frame instruction cap, and explicit max_steps bound unchanged.
++Tests exercise a 4.1-million-instruction progressing driver and a stalled loop.
 diff --git a/runner/src/main_runner.c b/runner/src/main_runner.c
 index d6c9e03..ce10f34 100644
 --- a/runner/src/main_runner.c
@@ -947,3 +1012,75 @@ index 49dd1ee..b1fb061 100644
      g_ws_eff_left = 0;
      g_ws_eff_right = 0;
      printf("[Voxel] %s enabled: pitch=%d yaw=%d roll=%d zoom=%d%% "
+diff --git a/tests/interp_selftest.c b/tests/interp_selftest.c
+index 4107e27..1e21829 100644
+--- a/tests/interp_selftest.c
++++ b/tests/interp_selftest.c
+@@ -44,6 +44,8 @@ static int s_mapper_type = 0;
+ static uint16_t s_resume_pc = 0;
+ static int s_resume_tick_charged = 0;
+ static int s_resume_prepares = 0;
++static unsigned s_boundary_steps = 0;
++static int s_progress_test = 0;
+ 
+ uint8_t nes_read(uint16_t a) {
+     if (a < 0x2000)                return g_ram[a & 0x07FF];
+@@ -63,7 +65,15 @@ uint16_t nes_read16_jmpbug(uint16_t a) {
+ uint8_t mapper_peek_prg(uint16_t a) { return g_ram[a & 0x07FF]; } /* unused by RAM-resident tests */
+ int mapper_get_type(void) { return s_mapper_type; }
+ void maybe_trigger_vblank(int c) { (void)c; }
+-void nes_cpu_instruction_boundary(uint16_t pc, int cycles) { (void)pc; (void)cycles; }
++void nes_cpu_instruction_boundary(uint16_t pc, int cycles) {
++    (void)pc; (void)cycles;
++    if (s_progress_test) {
++        ++s_boundary_steps;
++        if (s_boundary_steps % 10000 == 0) nes_interp_frame_boundary();
++        /* End the synthetic driver after exceeding the old session cap twice. */
++        if (s_boundary_steps == 4100000) g_ram[0x600] = 0x00;
++    }
++}
+ int  game_dispatch_override(uint16_t a) { (void)a; return 0; }
+ void nes_record_dispatch_miss(uint16_t a) { (void)a; }
+ void nes_record_dispatch_miss_bank(uint16_t gen_addr, uint16_t cpu_addr, int bank) {
+@@ -156,6 +166,8 @@ static void fresh(void) {
+     s_resume_pc = 0;
+     s_resume_tick_charged = 0;
+     s_resume_prepares = 0;
++    s_boundary_steps = 0;
++    s_progress_test = 0;
+     nes_interp_set_enabled(1);
+     nes_interp_set_native_handoff_mode(NES_INTERP_HANDOFF_ISLAND);
+     nes_interp_reset_context();
+@@ -398,6 +410,32 @@ int main(void) {
+     CHECK(s_native_calls == 1, "T12 resumed through native tail target once");
+     CHECK(g_ram[0x20] == 0x99, "T12 native tail target executed");
+ 
++    printf("[T13] resumed frame driver outlives the session instruction cap\n");
++    fresh();
++    { NesInterpStats before, after;
++      uint8_t loop[] = {0x4C,0x00,0x06};
++      load(0x0600, loop, sizeof loop);
++      nes_interp_get_stats(&before);
++      s_progress_test = 1;
++      r = nes_interp_resume(0x0600);
++      nes_interp_get_stats(&after);
++      CHECK(r == 1, "T13 progressing resume handled");
++      CHECK(s_boundary_steps > 4000000, "T13 completed over four million instructions");
++      CHECK(after.watchdog_trips == before.watchdog_trips, "T13 frame progress renews watchdog"); }
++
++    printf("[T14] no-progress loop still trips the watchdog\n");
++    fresh();
++    { NesInterpStats before, after;
++      NesInterpExit exit;
++      uint8_t loop[] = {0x4C,0x00,0x06};
++      load(0x0600, loop, sizeof loop);
++      nes_interp_get_stats(&before);
++      nes_interp_resume(0x0600);
++      nes_interp_get_stats(&after);
++      nes_interp_get_last_exit(&exit);
++      CHECK(after.watchdog_trips == before.watchdog_trips + 1, "T14 stalled driver trips once");
++      CHECK(exit.kind == NES_INTERP_EXIT_DECLINED, "T14 stalled driver is declined"); }
++
+     printf("\n==== interp self-test: %d checks, %d failures ====\n", g_checks, g_fails);
+     return g_fails;
+ }

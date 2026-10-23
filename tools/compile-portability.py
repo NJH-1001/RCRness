@@ -5,6 +5,7 @@ No commercial game data is available to CI or included in release artifacts.
 """
 from pathlib import Path
 import subprocess
+import os
 
 root = Path(__file__).resolve().parents[1]
 work = root / 'build-portability'
@@ -26,6 +27,10 @@ engine = root / 'nesrecomp'
 patch = root / 'engine-patches/adaptive-renderer.patch'
 if subprocess.run(['git', '-C', str(engine), 'apply', '--reverse', '--check', str(patch)], capture_output=True).returncode:
     run('git', '-C', engine, 'apply', patch)
+run(os.environ.get('CC', 'cc'), '-I', engine / 'runner/include', '-I', engine / 'recompiler/src',
+    engine / 'runner/src/interp.c', engine / 'recompiler/src/cpu6502_decoder.c',
+    engine / 'tests/interp_selftest.c', '-o', work / 'interp-selftest')
+run(work / 'interp-selftest')
 run('cmake', '-S', engine / 'recompiler', '-B', work / 'recompiler', '-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release')
 run('cmake', '--build', work / 'recompiler', '--parallel', '2')
 run(work / 'recompiler/NESRecomp', work / 'synthetic.nes', '--game', work / 'synthetic.toml')

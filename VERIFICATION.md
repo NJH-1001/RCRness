@@ -2,6 +2,21 @@
 
 ## v0.1.5 release verification (2026-10-23)
 
+- **Watchdog repaired; remaining save-state mismatch accepted for release:** a regression
+  test reproduced the cumulative instruction-cap failure (three failed checks
+  before the fix). The isolated engine now renews that budget at completed
+  frame boundaries: all 75 interpreter checks pass, including 4.1 million
+  progressing instructions and a no-progress loop that still trips the guard.
+  Real-game saves captured at frames 1400 and 1983 both advance another 6000
+  frames with zero watchdog trips and zero dispatch misses. However, the new
+  uninterrupted-versus-restored comparison fails RAM equality for both saves;
+  the pre-game save also has a small visible pixel difference at the final
+  checkpoint (a roughly 5x5-pixel patch near the lower death-message text).
+  The gameplay save's final image matches. Do not treat absence of the
+  watchdog as proof of exact continuation restoration. The owner explicitly
+  authorized publication with this known limitation on 2026-10-23.
+  Private evidence is under `build-release-validation/watchdog-regression-2`;
+  the reproducible audit is `tools/validate_savestate_continuation.py`.
 - Synced the merged adaptive-widescreen work at `967f6a2`.
 - Built privately from clean pinned engine `a546dfef` plus the checked-in
   renderer patch. The separate shared engine's PS1 edits were preserved.
@@ -33,7 +48,8 @@
   qualified. A long run resumed from the frame-1983 snapshot also reached a
   fallback watchdog at `$F2CE` after frame 3159. Fresh-boot native and wide
   capture reached frame 3564 successfully. Long resumed sessions remain a
-  known save-state limitation; short replay/pause checks do not qualify them.
+  former save-state limitation. The completed-frame watchdog repair described
+  above removes that failure; exact long replay equivalence remains unqualified.
 - Native GitHub runners compiled and linked the Linux x86-64, macOS Intel and
   macOS Apple Silicon hosts with original synthetic test input. Each packaged
   setup passed its embedded ROM-free payload audit. Real-ROM gameplay and
@@ -42,9 +58,8 @@
   of requiring contributor-specific F:/G: volumes.
 - Public release assets contain setup applications and tracked source only.
   No playable title binaries, ROMs, generated game code or private test data
-  are included. The incoming-damage blocker is resolved; keep the release a
-  draft while the separately observed long save-state continuation watchdog
-  remains unresolved.
+  are included. The incoming-damage check and cumulative watchdog failure are
+  resolved; the owner accepted the remaining long-replay mismatch for release.
 
 ## Experimental adaptive widescreen mod: local validation
 
