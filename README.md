@@ -18,12 +18,16 @@ Expected ROM identity:
 
 ## Experimental enhanced renderer and adaptive widescreen
 
-### v0.1.6 shop-freeze hotfix
+### v0.1.7 scenery and sprite fixes
 
-Adds the missing bank-2 `$8C7E` continuation to `game.toml` and regenerates
-the game during the private build. Download the updated setup and choose
-**Rebuild** once; **Play Previous Build** keeps your old executable and will
-not apply this fix. This hotfix makes no other gameplay or engine changes.
+Sixteen more gameplay areas now show their original two-page scenery in
+widescreen. Original movement and collision boundaries are preserved;
+single-screen scenes and shops retain their native composition. Carried
+enemies use the correct graphics, and coins or other omitted sprites no
+longer remain as stale images. The v0.1.6 shop-freeze fix is included.
+
+Download the updated setup and choose **Rebuild** once. **Play Previous Build**
+keeps your old executable and will not apply these fixes.
 
 The adaptive widescreen mod is **experimental**. Full game progression, all
 shop and boss prerequisites, physical two-controller play, and netplay have

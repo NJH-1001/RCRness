@@ -39,13 +39,16 @@ typedef struct {
     uint8_t room;
 } ActorState;
 static ActorState s_actors;
+static uint32_t s_list_pending;
 static uint8_t s_rom[PRG_SIZE + CHR_SIZE];
 static int s_ready, s_enabled = 1;
 static NesAspectMode s_aspect = NES_ASPECT_FIT;
 static int s_room = -1, s_pages, s_left, s_right, s_view, s_camera;
+static int s_resident;
 static uint8_t s_tiles[MAX_PAGES * 32][30];
 static uint8_t s_attributes[MAX_PAGES * 32][30];
 static uint8_t s_page_palette[MAX_PAGES], s_page_chr[MAX_PAGES];
+static uint8_t s_resident_nt[2048], s_resident_chr[2];
 static uint8_t s_opaque[NES_MAX_RENDER_WIDTH * 240];
 static uint64_t s_wide_frames, s_decode_errors, s_collision_reads, s_activation_reads, s_spawn_reads;
 static unsigned s_terrain_pixels,s_terrain_diffs;
@@ -72,17 +75,81 @@ static uint8_t prg(int bank, unsigned addr) {
 }
 static unsigned word(int bank, unsigned addr) { return prg(bank, addr) | (prg(bank, addr+1) << 8); }
 
+static uint8_t screen_byte(unsigned bank, unsigned addr) {
+    if (addr>=0x8000) return prg((int)bank,addr);
+    unsigned offset=PRG_SIZE+bank*1024+addr-0x1000;
+    return addr>=0x1000 && addr<0x2000 && offset<sizeof s_rom ? s_rom[offset] : 0;
+}
+/* C7F2..C928: bounded resident-screen bytecode, including substreams. */
+static int screen_stream(unsigned bank, unsigned *src, unsigned *dst, int depth, int *budget) {
+    if (depth>8) return 0;
+    while (--*budget>0) {
+        unsigned cmd=screen_byte(bank,(*src)++);
+        if (!cmd) {
+            unsigned hi=screen_byte(bank,(*src)++);
+            if (!hi) return 1;
+            unsigned lo=screen_byte(bank,(*src)++);
+            if ((hi&0xf0)==0x20) *dst=(hi<<8)|lo;
+            else {
+                unsigned sub=(hi<<8)|lo;
+                if (!screen_stream(bank,&sub,dst,depth+1,budget)) return 0;
+            }
+            continue;
+        }
+        unsigned count=cmd&63, rows=1;
+        if ((cmd&0xc0)==0x80 || (cmd&0xc0)==0xc0) rows=screen_byte(bank,(*src)++);
+        unsigned value=0;
+        if (!(cmd&0x40)) value=screen_byte(bank,(*src)++);
+        unsigned start=*src;
+        for (unsigned r=0;r<rows;r++) {
+            if ((cmd&0xc0)==0xc0) *src=start;
+            for (unsigned i=0;i<count;i++) {
+                if (--*budget<=0) return 0;
+                if (cmd&0x40) value=screen_byte(bank,(*src)++);
+                if (*dst>=0x2000 && *dst<0x2800) s_resident_nt[*dst-0x2000]=(uint8_t)value;
+                (*dst)++;
+            }
+        }
+    }
+    return 0;
+}
+
 /* The scrolling-room directory is fixed-bank C599, three bytes per room.
  * C602..C704 contains seven-byte page descriptors. C230 streams twenty rows
  * of tiles, C41C streams the attributes; both reference owner-ROM bank 0..3.
- * The remaining rooms are authored single-screen compositions, not repeated
- * scenery. They retain their native frame, centered in the adaptive viewport. */
+ * C959's resident-screen records supply the other backgrounds. Directory
+ * allocation separates paired scenes from centered single-screen scenes. */
 static void decode_room(void) {
-    s_room = g_ram[0x42]; s_pages = 0; s_left = 0; s_right = 256;
+    s_room = g_ram[0x42]; s_pages = 0; s_left = 0; s_right = 256; s_resident=0;
     memset(s_tiles, 0, sizeof s_tiles);
     memset(s_attributes, 0, sizeof s_attributes);
     unsigned directory = 0xc599 + s_room * 3;
-    if (!(prg(7, directory+2) & 0x80)) return;
+    if (!(prg(7, directory+2) & 0x80)) {
+        /* C000..C091 loads the resident C959 screen records into the two
+         * horizontal nametables. Directory allocation distinguishes paired
+         * scenes from single-screen scenes sharing the next record. */
+        unsigned first=prg(7,directory+2), end=0x26;
+        for (int room=0; room<ROOMS; room++) {
+            unsigned next=prg(7,0xc59b+room*3);
+            if (next>first && next<end) end=next;
+        }
+        if (end-first==2) {
+            memset(s_resident_nt,0,sizeof s_resident_nt);
+            for (int p=1;p>=0;p--) {
+                unsigned desc=0xc959+(first+p)*6;
+                unsigned src=word(7,desc), dst=0x2000;
+                int budget=16384;
+                if (!screen_stream(prg(7,desc+2),&src,&dst,0,&budget)) {
+                    s_decode_errors++; return;
+                }
+            }
+            unsigned desc=0xc959+first*6;
+            s_resident_chr[0]=prg(7,desc+4)&0xfe;
+            s_resident_chr[1]=prg(7,desc+5)&0xfe;
+            s_resident=1; s_pages=2; s_right=512;
+        }
+        return;
+    }
     unsigned first = word(7, directory), end = 0xc705;
     for (int room=0; room<ROOMS; room++) {
         unsigned p = word(7, 0xc599+room*3);
@@ -127,6 +194,17 @@ static int view_left(int cam, int width) {
 static uint32_t bg_pixel(int wx, int y, int *opaque) {
     *opaque=0;
     if (wx < s_left || wx >= s_right || y<32 || y>=192) return 0xff000000u;
+    if (s_resident) {
+        unsigned nt=(wx/256)*1024, tx=(wx&255)/8, ty=y/8;
+        unsigned tile=s_resident_nt[nt+ty*32+tx];
+        unsigned attr=s_resident_nt[nt+960+(ty/4)*8+tx/4];
+        unsigned pal=(attr>>((ty&2)*2+(tx&2)))&3;
+        unsigned row=PRG_SIZE+s_resident_chr[tile/128]*1024+(tile%128)*16+(y&7), shift=7-(wx&7);
+        if (row+8>=sizeof s_rom) return 0xff000000u;
+        unsigned pixel=((s_rom[row]>>shift)&1)|(((s_rom[row+8]>>shift)&1)<<1);
+        *opaque=pixel!=0;
+        return g_nes_palette[g_ppu_pal[pixel?pal*4+pixel:0]&63];
+    }
     int p=wx/256, tile=s_tiles[wx/8][y/8], pal=s_attributes[wx/8][y/8];
     unsigned offset = PRG_SIZE+(s_page_chr[p]&0xfe)*1024+tile*16+(y&7);
     if (offset+8 >= sizeof s_rom) return 0xff000000u;
@@ -174,7 +252,11 @@ static void decode_packet(Packet *out) {
                 (src->held_by>=4 || (src->held_state&0x7f)==0x15)) {
                 unsigned list=ptr+index;
                 back=word(3,list); back_index=0;
-                ptr=word(3,list+2+2*(src->held_kind%5));
+                /* EE4F..EE58 subtracts five ONCE, not modulo five.
+                 * In particular, held enemy kind 10 selects entry 5. */
+                unsigned kind=src->held_kind;
+                if (kind>=5) kind-=5;
+                ptr=word(3,list+2+2*kind);
             } else ptr=word(3,ptr+index);
             index=0; continue;
         }
@@ -222,9 +304,23 @@ static void capture_object(int obj) {
     src->room=g_ram[0x42]; src->valid=1;
     decode_packet(&s_actors.shadow[obj]);
 }
+static void clear_shadow_list(void) {
+    memset(s_actors.shadow,0,sizeof s_actors.shadow);
+    s_list_pending=0;
+}
+static int begin_sprite_list(uint16_t addr) {
+    (void)addr;
+    if (s_enabled && gameplay() && !pause_panel()) s_list_pending=1;
+    return 0;
+}
 static int observe_sprite(uint16_t addr) {
     (void)addr;
-    if (s_enabled && gameplay() && !pause_panel()) capture_object(g_ram[0x47]);
+    if (s_enabled && gameplay() && !pause_panel()) {
+        /* EFD4 may wait for the previous OAM DMA. Keep that pending list
+         * intact until the first ED0E call in the new list, after the wait. */
+        if (s_list_pending) clear_shadow_list();
+        capture_object(g_ram[0x47]);
+    }
     return 0;
 }
 static int suppress_sprite(int slot, int x, int y, void *user) {
@@ -238,7 +334,11 @@ void rcr_ws_dma(void) {
     if (!s_ready || !s_enabled || pause_panel()) return;
     if (s_actors.room != g_ram[0x42]) {
         memset(&s_actors,0,sizeof s_actors); s_actors.room=g_ram[0x42];
+        s_list_pending=0;
     }
+    /* An empty guest list makes no ED0E calls. EFD4 leaves $06B5 at zero
+     * after completion; a list waiting for the old DMA still has its count. */
+    if (s_list_pending && !g_ram[0x6b5]) clear_shadow_list();
     for (int obj=0; obj<OBJECTS; obj++) {
         if (!(g_ram[0x48+obj]&0x80)) {
             s_actors.shadow[obj].count=0; s_actors.shadow[obj].source.valid=0;
@@ -359,6 +459,7 @@ static void apply(void) {
     nes_video_set_aspect_mode(s_enabled?s_aspect:NES_ASPECT_STOCK);
     ppu_renderer_set_custom_render(s_enabled?render:NULL,NULL);
     nes_mod_set_function_hook_enabled("rcr.widescreen.metasprite",s_enabled);
+    nes_mod_set_function_hook_enabled("rcr.widescreen.draw-list",s_enabled);
 }
 int rcr_ws_arg(const char *key, const char *value) {
     if (strcmp(key,"--widescreen") || !value) return 0;
@@ -372,21 +473,28 @@ void rcr_ws_frame(void) {
     if (s_ready && s_room!=g_ram[0x42] && g_ram[0x42]<ROOMS) {
         decode_room();
         memset(&s_actors,0,sizeof s_actors); s_actors.room=g_ram[0x42];
+        s_list_pending=0;
     }
 }
-typedef struct { Source shadow[OBJECTS],present[OBJECTS]; uint32_t sequence,room; } ActorSave;
+typedef struct {
+    Source shadow[OBJECTS],present[OBJECTS];
+    uint32_t sequence,room,list_pending;
+} ActorSave;
 static int state_get(uint8_t *buf, int cap) {
     if (cap<(int)sizeof(ActorSave)) return -1;
     ActorSave state={0};
     state.sequence=s_actors.sequence; state.room=s_actors.room;
+    state.list_pending=s_list_pending;
     for (int i=0;i<OBJECTS;i++) {
         state.shadow[i]=s_actors.shadow[i].source; state.present[i]=s_actors.present[i].source;
     }
     memcpy(buf,&state,sizeof state); return sizeof state;
 }
 static int state_set(const uint8_t *buf, int len) {
-    if (len!=sizeof(ActorSave)) return 0;
-    ActorSave state; memcpy(&state,buf,sizeof state);
+    /* v0.1.6 states have the same source packets but no pending-list field. */
+    if (len!=sizeof(ActorSave) && len!=sizeof(ActorSave)-sizeof(uint32_t)) return 0;
+    ActorSave state={0}; memcpy(&state,buf,(size_t)len);
+    if (state.list_pending>1) return 0;
     if (state.room>=ROOMS) return 0;
     for (int i=0;i<OBJECTS;i++) {
         if (state.shadow[i].valid>1 || state.present[i].valid>1 ||
@@ -394,6 +502,7 @@ static int state_set(const uint8_t *buf, int len) {
     }
     memset(&s_actors,0,sizeof s_actors);
     s_actors.sequence=state.sequence; s_actors.room=(uint8_t)state.room;
+    s_list_pending=state.list_pending;
     for (int i=0;i<OBJECTS;i++) {
         s_actors.shadow[i].source=state.shadow[i]; s_actors.present[i].source=state.present[i];
         decode_packet(&s_actors.shadow[i]); decode_packet(&s_actors.present[i]);
@@ -410,6 +519,7 @@ void rcr_ws_init(const char *rom_path) {
     s_ready=1;
     nes_video_on_window_resized(1280,720);
     nes_mod_register_function_entry_plugin("rcr.widescreen.metasprite",0xed0e,observe_sprite);
+    nes_mod_register_function_entry_plugin("rcr.widescreen.draw-list",0xefd4,begin_sprite_list);
     nes_mod_register_savestate_hook("rcr.widescreen.actors",state_get,state_set);
     ppu_renderer_set_sprite_suppress(suppress_sprite,NULL);
     apply();

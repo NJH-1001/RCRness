@@ -18,12 +18,14 @@ scaling when necessary so the picture fills the available aspect.
 .\RCRness.exe 'River City Ransom (USA).nes' --widescreen off
 ```
 
-The thirteen scrolling rooms use the same NESRecomp custom-compositor and
-live-resizing API used by Super Mario Bros. Their camera stops at the authored
-room edges. Rooms narrower than the viewport are centered. The twenty-two
-authored single-screen rooms, shops, title and other non-gameplay screens keep
-their native composition; neighboring nametable data is never repeated to
-fill those margins. The status bar and text remain centered and readable.
+The thirteen column-streamed rooms and sixteen resident two-page scenes use
+the same NESRecomp custom-compositor and live-resizing API used by Super Mario
+Bros. Their camera stops at the authored room edges. Rooms narrower than the
+viewport are centered. Six authored single-screen scenes, shops, title and
+other non-gameplay screens keep their native composition; neighboring
+nametable data is never repeated to fill those margins. The status bar and
+text remain centered and readable. Movement and collision boundaries retain
+their original values.
 Pausing a scrolling room retains the wide world and frozen actors behind the
 centered pause controls. Full pause panels (including belongings, status/help
 and passwords) extend their native flat background across the viewport while
@@ -46,6 +48,13 @@ and attribute tables into a world cache. Each page retains its original CHR
 and palette selection. The native pass remains authoritative for live visible
 door/text edits, IRQ splits and other transient background changes. Its
 hardware left-eight-pixel mask cannot create a seam inside the wider world.
+
+The other gameplay backgrounds use six-byte resident-screen records at
+`$C959`. A bounded decoder follows the original `$C7F2..$C928` bytecode,
+including CHR-ROM-backed streams and nested substreams. Directory allocation
+identifies paired pages versus single-screen scenes. Decoding from the ROM
+keeps resident scenery available while pause controls temporarily repurpose
+the live nametables and CHR mapping; loading a state rebuilds the cache.
 
 The original `$ED0E` metasprite routine is observed before its OAM budget and
 8-bit clipping checks. A bounded host decoder handles linked graphics streams,

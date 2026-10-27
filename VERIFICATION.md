@@ -1,5 +1,34 @@
 # Verification status
 
+## v0.1.7 sprite-fix verification (2026-10-27)
+
+- Carried-enemy opcode `$FC` now follows EE4F..EE58's single subtraction,
+  not modulo five. The supplied kind-10 save matches the native carried-person
+  pixels at both 16:9 and 32:9 after unpausing.
+- A non-handling hook observes EFD4's sorted draw-list builder. Shadow packets
+  are cleared on its first ED0E emission, after the prior-DMA wait, or at DMA
+  for a completed empty list. Displayed packets are promoted only at DMA.
+  Paused lists are retained; omitted but still-allocated objects are not
+  perpetually redisplayed. The reported ghost coin has zero displayed tiles
+  after rebuilding the list. No actor position/state/health logic is patched.
+- A pending-list field is persisted in the mod payload. The prior v0.1.6
+  source-packet payload is accepted; both preserved user saves load.
+- `tools/validate_sprite_lifetime.py`: six native/16:9/32:9 supplied-save cases,
+  carried-person native pixel comparisons, ghost-packet removal, paused image
+  stability and new-state replay all pass. The pre-fix build fails the native
+  carried-person pixel comparison as a negative control.
+- `tools/test_sprite_list.c`: original synthetic lifecycle checks cover the
+  old-DMA wait, first emission, delayed promotion, empty lists, pending-phase
+  save/load and old-payload compatibility. Passes against the real source.
+- All 73 entrance loads, nine geometry cases, five submenus, short replay,
+  outgoing combat/rewards/replacement waves and six incoming-damage cases pass.
+- Hidden CRT-enabled window checks pass seven pause/resize cases and all five
+  submenus; the shop-entry test also passes. The non-diagnostic Windows build
+  passes its private in-save script smoke with zero dispatch misses.
+- This does not qualify the reported fleeing-enemy freeze or expand authored
+  single-screen rooms. Existing long replay limitations remain unchanged.
+- User saves, screenshots and privately compiled game remain ignored/unshared.
+
 ## v0.1.6 shop-entry hotfix verification (2026-10-26)
 
 - Only gameplay/config change from v0.1.5: add `bank2 = [0x8C7E]` under
@@ -271,3 +300,30 @@ counter advances `$FF -> $00 -> $01 -> $02 -> $03 -> $04`, then gameplay appears
 
 No ROM poke, generated-code edit, or game-code bypass is used. The project only
 selects the verified generic renderer timing mode through its public runner API.
+
+## Resident two-page gameplay scenery
+
+- The nonnegative C59B directory entries use C959 resident-screen records;
+  they are not all single-screen rooms. Sixteen allocate two pages and six
+  allocate one. The original C000/C705 loaders and C7F2..C928 bytecode were
+  checked in Ghidra before implementing the bounded host decoder.
+- Decode the original CHR/PRG-backed streams, fills, literals, repeated rows,
+  destination changes and substreams. Derive the scene classification from
+  ROM allocations. Keep single-screen scenes centered; never repeat scenery
+  or write movement/collision bounds. Restore the ROM-derived cache on load.
+- Targeted runtime checks pass 44 room/aspect cases across all 22 resident
+  scenes. Every paired scene matches all 38,400 compared native background
+  pixels at both 16:9 and 32:9. A natural park walk crosses X=256 with identical
+  player and camera traces in native/off and 32:9 modes. Paused background
+  stability and paused-state replay also pass.
+- The final 73-entrance/nine-geometry audit and exact gameplay-state replay
+  pass. The previous carried-enemy and ghost-coin tests still pass in native,
+  16:9 and 32:9 modes, including paused-state replay. The packaged production
+  executable completes a scripted park walk and screenshots with zero dispatch
+  misses. Private outputs remain under build-release-validation and dist-private.
+- Reproduce targeted checks with tools/validate_resident_rooms.py, supplying
+  an owner ROM, trace executable and private entrance-audit states. Full game
+  progression remains unverified.
+- A real hidden Windows SDL window with CRT enabled passes seven paused
+  geometry cases, all five full submenus, native return controls, live resizing
+  and exact paused-state replay in Sherman Park.
