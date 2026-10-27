@@ -25,6 +25,9 @@ fixed = [
     0xF1D9, # IRQ vector
     0xF223, # RESET continuation after hardware initialization
 ]
+bank2 = [
+    0x8C7E,
+]
 
 # Observe complete metasprites before the hardware OAM clip/budget is applied.
 [[mod_function_hook]]

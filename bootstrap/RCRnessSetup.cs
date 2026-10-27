@@ -13,8 +13,8 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("ROM-free owned-input setup host for RCRness")]
 [assembly: AssemblyCompany("RCRness contributors")]
 [assembly: AssemblyProduct("RCRness Setup")]
-[assembly: AssemblyVersion("0.1.5.0")]
-[assembly: AssemblyFileVersion("0.1.5.0")]
+[assembly: AssemblyVersion("0.1.6.0")]
+[assembly: AssemblyFileVersion("0.1.6.0")]
 
 namespace RCRnessSetup
 {
@@ -107,7 +107,7 @@ namespace RCRnessSetup
 
     internal sealed class SetupForm : Form
     {
-        private const string SetupVersion = "0.1.5";
+        private const string SetupVersion = "0.1.6";
         private const string SourceResource = "RCRness.SourceKit.zip";
         private const string ExpectedRomSha256 =
             "B95F8DEF04C0012604B7CC68CF4ED8F49B2DFE4BEDA6182051DE4B2423BEA7B1";

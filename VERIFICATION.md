@@ -1,5 +1,34 @@
 # Verification status
 
+## v0.1.6 shop-entry hotfix verification (2026-10-26)
+
+- Only gameplay/config change from v0.1.5: add `bank2 = [0x8C7E]` under
+  `[functions]` in `game.toml`. No engine patch, controller, rendering, damage,
+  or generated-code hand edits. Setup version is bumped to 0.1.6.
+- Ghidra confirms bank 2 uses the recompiler's 16-KiB numbering. At `$8C75`
+  the shop loop pushes `$8C7D`, then jumps indirectly through `$002A`;
+  the handler's return continuation is `$8C7E`. That continuation begins with
+  `INC $052B` followed by the shop-loop helper calls.
+- The v0.1.5 private build reproduced the freeze on the original shop-entry
+  request: fallback at `$8C7E` hit the watchdog at `$FC73`, then paused.
+- Regenerated from the supported owner ROM using the amended config, then
+  compiled the private Windows trace build. The new dispatcher explicitly
+  maps `$8C7E`, bank 2, to `func_8C7E_b2`.
+- `tools/validate_shop_entry.py` triggers the original shop-entry dispatcher
+  from a gameplay snapshot, bypassing traversal prerequisites. Shop indices
+  0, 1, 5, 10 and 23 each ran 600 frames at the native menu, then another
+  384 frames with input; zero dispatch misses and watchdog trips. Screenshots
+  show book, cafe, sushi and mystery-shop menus. This is not a purchase,
+  learned-move, boss-progression, password or full-completion certification.
+- All six incoming-damage comparisons passed again (HP 63 -> 61 except the
+  expected clipped native X=400 case, which remains 63).
+- The reporter independently reports finishing the game, including shops,
+  bosses, restaurants, moves and passwords; that is user feedback, not a
+  local full-game completion test.
+- Existing save-state long-replay differences documented for v0.1.5 remain.
+- Existing installations must run the new setup and choose **Rebuild** once.
+  **Play Previous Build** deliberately preserves the previously compiled game.
+
 ## v0.1.5 release verification (2026-10-23)
 
 - **Watchdog repaired; remaining save-state mismatch accepted for release:** a regression

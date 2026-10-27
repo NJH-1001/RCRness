@@ -10,7 +10,7 @@ import sys
 import threading
 import zipfile
 
-VERSION = '0.1.5'
+VERSION = '0.1.6'
 ROM_HASH = 'b95f8def04c0012604b7cc68cf4ed8f49b2dfe4beda6182051de4b2423bea7b1'
 PAYLOAD = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent)) / 'source-kit.zip'
 

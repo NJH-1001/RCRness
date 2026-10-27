@@ -18,6 +18,13 @@ Expected ROM identity:
 
 ## Experimental enhanced renderer and adaptive widescreen
 
+### v0.1.6 shop-freeze hotfix
+
+Adds the missing bank-2 `$8C7E` continuation to `game.toml` and regenerates
+the game during the private build. Download the updated setup and choose
+**Rebuild** once; **Play Previous Build** keeps your old executable and will
+not apply this fix. This hotfix makes no other gameplay or engine changes.
+
 The adaptive widescreen mod is **experimental**. Full game progression, all
 shop and boss prerequisites, physical two-controller play, and netplay have
 not been fully validated. Use `--widescreen off` for the native view.
